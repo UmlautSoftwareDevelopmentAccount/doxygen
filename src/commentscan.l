@@ -137,6 +137,7 @@ static bool handleParBlock(yyscan_t yyscanner,const QCString &, const QCStringLi
 static bool handleEndParBlock(yyscan_t yyscanner,const QCString &, const QCStringList &);
 static bool handleParam(yyscan_t yyscanner,const QCString &, const QCStringList &);
 static bool handleRetval(yyscan_t yyscanner,const QCString &, const QCStringList &);
+static bool handleReq(yyscan_t yyscanner,const QCString &s, const QCStringList &);
 
 #if USE_STATE2STRING
 static const char *stateToString(int state);
@@ -260,6 +261,7 @@ static const std::map< std::string, DocCmdMap > docCmdMap =
   { "relatesalso",     { &handleRelatedAlso,      CommandSpacing::Invisible }},
   { "remark",          { 0,                       CommandSpacing::Block     }},
   { "remarks",         { 0,                       CommandSpacing::Block     }},
+  { "req",             { &handleReq,              CommandSpacing::Inline    }},
   { "result",          { 0,                       CommandSpacing::Block     }},
   { "return",          { 0,                       CommandSpacing::Block     }},
   { "returns",         { 0,                       CommandSpacing::Block     }},
@@ -2721,6 +2723,42 @@ static bool handleCopyDoc(yyscan_t yyscanner,const QCString &, const QCStringLis
   addOutput(yyscanner,"\\copybrief ");
   yyextra->copyDocArg.resize(0);
   BEGIN(CopyDoc);
+  return FALSE;
+}
+
+static bool handleReq(yyscan_t yyscanner, const QCString &s, const QCStringList &)
+{
+  QCStringList::ConstIterator it;
+
+  for (it = optlist.begin(); it != optList.end(); ++it)
+  {
+    // <req-string-id> is either <label>:<req-string-id> or <req-string-id>
+    //   where <label> is taken from configuration REQ_PREFIX,
+    //         <req-string-id> is any non-empty string that does not include :
+
+    QCString reqStr = (*it).stripWhiteSpace();
+
+    const int delimPos = opt.find(':');  // -1: not found, 0: first char
+
+    if (delimPos == 0)
+    {
+      warn(yyextra->fileName, yyextra->lineNr,
+           "Ignoring missing label for \\req: '%s'", reqStr.data());
+    }
+
+    QCString label =
+        (delimPos > 0)  // non-empty label?
+          ? reqStr.left(static_cast<unsigned>(delimPos))
+          : QCString(":");
+
+    QCString reqId =
+        (delimPos > -1)  // label found?
+          ? reqStr.right(reqStr.length() - static_cast<unsigned>(delimPos) - 1)
+          : reqStr;
+
+    yyextra->current->reqs.insert(label, reqId);
+  }
+
   return FALSE;
 }
 
