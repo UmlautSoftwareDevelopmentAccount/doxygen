@@ -1,5 +1,5 @@
 // objective: test req command
-// check: req.xml
+// check: 087__req_8cpp.xml
 // config: REQ_PREFIX = "COMMON:COMMON_EXPANDED_ SYS:SYS_EXPANDED_ SW:SW_EXPANDED_"
 // config: REQ_PROVIDER = req_provider
 
@@ -33,7 +33,7 @@ class A
 enum E
 {
   X /**< @req{SW:ENUM_X} */
-, Y /**< @req{:MISSING_LABEL} */ 
+, Y /**< @req{:MISSING_LABEL} */
 };
 
 /** @} */
