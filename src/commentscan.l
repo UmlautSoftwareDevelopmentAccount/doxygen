@@ -31,6 +31,7 @@
 #include <stack>
 #include <string>
 #include <mutex>
+#include <utility>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -137,7 +138,7 @@ static bool handleParBlock(yyscan_t yyscanner,const QCString &, const QCStringLi
 static bool handleEndParBlock(yyscan_t yyscanner,const QCString &, const QCStringList &);
 static bool handleParam(yyscan_t yyscanner,const QCString &, const QCStringList &);
 static bool handleRetval(yyscan_t yyscanner,const QCString &, const QCStringList &);
-static bool handleReq(yyscan_t yyscanner,const QCString &s, const QCStringList &);
+static bool handleReq(yyscan_t yyscanner,const QCString &, const QCStringList &);
 
 #if USE_STATE2STRING
 static const char *stateToString(int state);
@@ -2726,11 +2727,13 @@ static bool handleCopyDoc(yyscan_t yyscanner,const QCString &, const QCStringLis
   return FALSE;
 }
 
-static bool handleReq(yyscan_t yyscanner, const QCString &s, const QCStringList &)
+static bool handleReq(yyscan_t yyscanner, const QCString &s, const QCStringList &optList)
 {
-  QCStringList::ConstIterator it;
+  struct yyguts_t *yyg = (struct yyguts_t*)yyscanner;
 
-  for (it = optlist.begin(); it != optList.end(); ++it)
+  const QCStringList::ConstIterator end = optList.end();
+
+  for (QCStringList::ConstIterator it = optList.begin(); it != end; ++it)
   {
     // <req-string-id> is either <label>:<req-string-id> or <req-string-id>
     //   where <label> is taken from configuration REQ_PREFIX,
@@ -2738,7 +2741,7 @@ static bool handleReq(yyscan_t yyscanner, const QCString &s, const QCStringList 
 
     QCString reqStr = (*it).stripWhiteSpace();
 
-    const int delimPos = opt.find(':');  // -1: not found, 0: first char
+    const int delimPos = reqStr.find(':');  // -1: not found, 0: first char
 
     if (delimPos == 0)
     {
@@ -2756,7 +2759,7 @@ static bool handleReq(yyscan_t yyscanner, const QCString &s, const QCStringList 
           ? reqStr.right(reqStr.length() - static_cast<unsigned>(delimPos) - 1)
           : reqStr;
 
-    yyextra->current->reqs.insert(label, reqId);
+    yyextra->current->reqs.insert(std::make_pair(label, reqId));
   }
 
   return FALSE;
