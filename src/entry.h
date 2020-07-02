@@ -296,6 +296,7 @@ class Entry
     QCString    id;           //!< libclang id
     LocalToc    localToc;
     QCString    metaData;     //!< Slice metadata
+    QMultiMap<QCString, QCString> reqs;
 
     /// return the command name used to define GROUPDOC_SEC
     const char *groupDocCmd() const
