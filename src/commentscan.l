@@ -138,6 +138,7 @@ static bool handleParBlock(yyscan_t yyscanner,const QCString &, const QCStringLi
 static bool handleEndParBlock(yyscan_t yyscanner,const QCString &, const QCStringList &);
 static bool handleParam(yyscan_t yyscanner,const QCString &, const QCStringList &);
 static bool handleRetval(yyscan_t yyscanner,const QCString &, const QCStringList &);
+static bool handleRequirement(yyscan_t yyscanner,const QCString &, const QCStringList &);
 
 #if USE_STATE2STRING
 static const char *stateToString(int state);
@@ -295,7 +296,7 @@ static const std::map< std::string, DocCmdMap > docCmdMap =
   { "docbookinclude",  { 0,                       FALSE }},
   { "maninclude",      { 0,                       FALSE }},
   { "xmlinclude",      { 0,                       FALSE }},
-  { "req",             { 0,                       FALSE }}
+  { "req",             { &handleRequirement,      FALSE }}
 };
 
 #define YY_NO_INPUT 1
@@ -2697,6 +2698,21 @@ static bool handleCopyDoc(yyscan_t yyscanner,const QCString &, const QCStringLis
   addOutput(yyscanner,"\\copybrief ");
   yyextra->copyDocArg.resize(0);
   BEGIN(CopyDoc);
+  return FALSE;
+}
+
+static bool handleRequirement(yyscan_t yyscanner,const QCString &s, const QCStringList &optList)
+{
+  QCStringList::ConstIterator it;
+  QCString tmpString = "";
+  for (it = optList.begin(); it != optList.end(); ++it)
+  {
+    tmpString += (*it) + ", ";
+  }
+  
+  printf("handleRequirement opts:(%s)\n", qPrint(tmpString));
+
+  setOutput(yyscanner,OutputBrief);
   return FALSE;
 }
 
