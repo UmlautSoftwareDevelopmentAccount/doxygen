@@ -294,7 +294,8 @@ static const std::map< std::string, DocCmdMap > docCmdMap =
   { "rtfinclude",      { 0,                       FALSE }},
   { "docbookinclude",  { 0,                       FALSE }},
   { "maninclude",      { 0,                       FALSE }},
-  { "xmlinclude",      { 0,                       FALSE }}
+  { "xmlinclude",      { 0,                       FALSE }},
+  { "req",             { 0,                       FALSE }}
 };
 
 #define YY_NO_INPUT 1
