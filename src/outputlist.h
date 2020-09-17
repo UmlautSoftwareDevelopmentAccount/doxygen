@@ -37,18 +37,11 @@ class DocRoot;
 class OutputList : public OutputDocInterface
 {
   public:
-    OutputList();
-    OutputList(const OutputList &ol);
-    OutputList &operator=(const OutputList &ol);
+    OutputList(bool);
     virtual ~OutputList();
 
-    template<class Generator>
-    void add()
-    {
-      m_outputs.emplace_back(std::make_unique<Generator>());
-    }
-
-    size_t size() const { return m_outputs.size(); }
+    void add(OutputGenerator *);
+    uint count() const { return static_cast<uint>(m_outputs.size()); }
 
     void disableAllBut(OutputGenerator::OutputType o);
     void enableAll();
@@ -500,8 +493,8 @@ class OutputList : public OutputDocInterface
       }
     }
 
+    OutputList(const OutputList &ol);
     std::vector< std::unique_ptr<OutputGenerator> > m_outputs;
-
 };
 
 #endif
