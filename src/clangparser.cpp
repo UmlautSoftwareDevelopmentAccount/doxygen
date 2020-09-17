@@ -1,7 +1,6 @@
 #include "clangparser.h"
 #include "settings.h"
 #include <stdio.h>
-#include <mutex>
 
 #if USE_LIBCLANG
 #include <clang-c/Index.h>
@@ -21,6 +20,7 @@
 #include "membername.h"
 #include "filename.h"
 #include "tooltip.h"
+#include <mutex>
 #endif
 
 //--------------------------------------------------------------------------
