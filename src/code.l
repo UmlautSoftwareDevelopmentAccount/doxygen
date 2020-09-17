@@ -2595,6 +2595,7 @@ static void codifyLines(yyscan_t yyscanner,const char *text)
     {
       yyextra->yyLineNr++;
       yyextra->yyColNr=1;
+      //*(p-1)='\0';
       int l = (int)(p-sp-1);
       char *tmp = (char*)malloc(l+1);
       memcpy(tmp,sp,l);
