@@ -31,7 +31,6 @@
 #include <memory>
 #include <algorithm>
 #include <unordered_map>
-#include <stack>
 
 #include <stdio.h>
 #include <assert.h>
@@ -63,9 +62,9 @@
 
 #define YY_NO_UNISTD_H 1
 
-#define CLASSBLOCK 1
-#define SCOPEBLOCK 2
-#define INNERBLOCK 3
+#define CLASSBLOCK (int *)4
+#define SCOPEBLOCK (int *)8
+#define INNERBLOCK (int *)12
 
 #define USE_STATE2STRING 0
 
@@ -249,8 +248,8 @@ struct codeYY_state
   QCString      args;
   QCString      classScope;
   QCString      realScope;
-  std::stack<int> scopeStack;      //!< 1 if bracket starts a scope, 
-                                   //   2 for internal blocks 
+  QStack<int>   scopeStack;      //!< 1 if bracket starts a scope, 
+                                 //   2 for internal blocks 
   int           anchorCount = 0;
   FileDef *     sourceFileDef = 0;
   bool          lineNumbers = FALSE;
@@ -287,7 +286,7 @@ struct codeYY_state
 
   bool          lexInit = FALSE;
 
-  std::stack<int>  classScopeLengthStack;
+  QStack<int>   classScopeLengthStack;
 
   int           prefixed_with_this_keyword = FALSE;
   const Definition *searchCtx = 0;
@@ -695,16 +694,12 @@ NUMBER {INTEGER_NUMBER}|{FLOAT_NUMBER}
   					  yyextra->type.resize(0); 
 					  yyextra->name.resize(0);
 
-                                          if (!yyextra->scopeStack.empty())
-                                          {
-					    int scope = yyextra->scopeStack.top();
-                                            yyextra->scopeStack.pop();
-                                            DBG_CTX((stderr,"** scope stack pop SCOPEBLOCK=%d\n",scope==SCOPEBLOCK));
-  					    if (scope==SCOPEBLOCK || scope==CLASSBLOCK) 
-					    {
-					      popScope(yyscanner);
-					    }
-                                          }
+					  int *scope = yyextra->scopeStack.pop();
+                                          DBG_CTX((stderr,"** scope stack pop SCOPEBLOCK=%d\n",scope==SCOPEBLOCK));
+  					  if (scope==SCOPEBLOCK || scope==CLASSBLOCK) 
+					  {
+					    popScope(yyscanner);
+					  }
 
   					  yyextra->code->codify(yytext);
 
@@ -735,17 +730,13 @@ NUMBER {INTEGER_NUMBER}|{FLOAT_NUMBER}
 					  {
                                             yyextra->theVarContext.popScope();
 
-                                            if (!yyextra->scopeStack.empty())
-                                            {
-                                              int scope = yyextra->scopeStack.top();
-                                              yyextra->scopeStack.pop();
-                                              DBG_CTX((stderr,"** scope stack pop SCOPEBLOCK=%d\n",scope==SCOPEBLOCK));
-                                              if (scope==SCOPEBLOCK || scope==CLASSBLOCK) 
-                                              {
-                                                popScope(yyscanner);
-                                              }
-                                            }
-                                            yyextra->insideBody=FALSE;
+					    int *scope = yyextra->scopeStack.pop();
+                                            DBG_CTX((stderr,"** scope stack pop SCOPEBLOCK=%d\n",scope==SCOPEBLOCK));
+  					    if (scope==SCOPEBLOCK || scope==CLASSBLOCK) 
+					    {
+					      popScope(yyscanner);
+					    }
+					    yyextra->insideBody=FALSE;
 					  }
 
 					  startFontClass(yyscanner,"keyword");
@@ -2437,7 +2428,7 @@ const ClassDef *VariableContext::dummyContext = (ClassDef*)0x8;
 static void pushScope(yyscan_t yyscanner,const char *s)
 {
   struct yyguts_t *yyg = (struct yyguts_t*)yyscanner;
-  yyextra->classScopeLengthStack.push(int(yyextra->classScope.length()));
+  yyextra->classScopeLengthStack.push(new int(yyextra->classScope.length()));
   if (yyextra->classScope.isEmpty() || leftScopeMatch(s,yyextra->classScope))
   {
     yyextra->classScope = s;
@@ -2455,11 +2446,11 @@ static void pushScope(yyscan_t yyscanner,const char *s)
 static void popScope(yyscan_t yyscanner)
 {
   struct yyguts_t *yyg = (struct yyguts_t*)yyscanner;
-  if (!yyextra->classScopeLengthStack.empty())
+  if (!yyextra->classScopeLengthStack.isEmpty())
   {
-    int length = yyextra->classScopeLengthStack.top();
-    yyextra->classScopeLengthStack.pop();
-    yyextra->classScope.truncate(length);
+    int *pLength = yyextra->classScopeLengthStack.pop();
+    yyextra->classScope.truncate(*pLength);
+    delete pLength;
   }
   else
   {
@@ -2507,7 +2498,7 @@ static void setClassScope(yyscan_t yyscanner,const QCString &name)
     // remove template from scope
     n=n.left(ts)+n.right(n.length()-te-1);
   }
-  while (!yyextra->classScopeLengthStack.empty())
+  while (!yyextra->classScopeLengthStack.isEmpty())
   {
     popScope(yyscanner);
   }
@@ -2826,7 +2817,7 @@ static MemberDef *setCallContextForVar(yyscan_t yyscanner,const QCString &name)
       if (md) 
       {
         DBG_CTX((stderr,"Found member %s\n",md->name().data()));
-	if (yyextra->scopeStack.empty() || yyextra->scopeStack.top()!=CLASSBLOCK)
+	if (yyextra->scopeStack.top()!=CLASSBLOCK)
 	{
           DBG_CTX((stderr,"class member '%s' mcd=%s\n",name.data(),mcd->name().data()));
 	  yyextra->theCallContext.setScope(stripClassName(yyscanner,md->typeString(),md->getOuterScope()));
@@ -3976,6 +3967,8 @@ CCodeParser::CCodeParser() : p(std::make_unique<CCodeParser::Private>())
 
 CCodeParser::~CCodeParser()
 {
+  struct yyguts_t *yyg = (struct yyguts_t*)p->yyscanner;
+  yyextra->classScopeLengthStack.clear();
   codeYYlex_destroy(p->yyscanner);
 }
 
@@ -3985,7 +3978,8 @@ void CCodeParser::resetCodeParserState()
   //printf("***CodeParser::reset()\n");
   yyextra->forceTagReference.resize(0);
   yyextra->theVarContext.clear();
-  yyextra->classScopeLengthStack = {};
+  yyextra->classScopeLengthStack.setAutoDelete(TRUE);
+  yyextra->classScopeLengthStack.clear();
   yyextra->codeClassMap.clear();
   yyextra->curClassBases.clear();
   yyextra->anchorCount = 0;
@@ -4032,7 +4026,7 @@ void CCodeParser::parseCode(CodeOutputInterface &od,const char *className,const 
   yyextra->sharpCount    = 0;
   yyextra->insideTemplate = FALSE;
   yyextra->theCallContext.clear();
-  yyextra->scopeStack = {};
+  yyextra->scopeStack.clear();
   yyextra->classScope    = className;
   //printf("parseCCode %s\n",className);
   yyextra->exampleBlock  = exBlock; 
