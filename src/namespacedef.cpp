@@ -1483,7 +1483,7 @@ void NamespaceDefImpl::addMemberToList(MemberListType lt,MemberDef *md)
 
   if (ml->listType()&MemberListType_declarationLists)
   {
-    md->setSectionList(this,ml);
+    md->setSectionList(ml);
   }
 }
 

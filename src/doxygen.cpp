@@ -3680,18 +3680,17 @@ static void transferFunctionReferences()
   {
     MemberDef *mdef=0,*mdec=0;
     /* find a matching function declaration and definition for this function */
-    for (const auto &md_p : *mn)
+    for (const auto &md : *mn)
     {
-      MemberDef *md = md_p.get();
       if (md->isPrototype())
-        mdec=md;
+        mdec=md.get();
       else if (md->isVariable() && md->isExternal())
-        mdec=md;
+        mdec=md.get();
 
       if (md->isFunction() && !md->isStatic() && !md->isPrototype())
-        mdef=md;
+        mdef=md.get();
       else if (md->isVariable() && !md->isExternal() && !md->isStatic())
-        mdef=md;
+        mdef=md.get();
 
       if (mdef && mdec) break;
     }
