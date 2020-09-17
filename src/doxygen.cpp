@@ -6946,14 +6946,7 @@ static void addEnumValuesToEnums(const Entry *root)
       MemberName *mn = mnsd->find(name); // for all members with this name
       if (mn)
       {
-        struct EnumValueInfo
-        {
-          EnumValueInfo(const QCString &n,std::unique_ptr<MemberDef> &md) :
-            name(n), member(std::move(md)) {}
-          QCString name;
-          std::unique_ptr<MemberDef> member;
-        };
-        std::vector< EnumValueInfo > extraMembers;
+        std::vector< std::unique_ptr<MemberDef> > extraMembers;
         // for each enum in this list
         for (const auto &md : *mn)
         {
@@ -7013,7 +7006,8 @@ static void addEnumValuesToEnums(const Entry *root)
                   fmd->setAnchor();
                   md->insertEnumField(fmd.get());
                   fmd->setEnumScope(md.get(),TRUE);
-                  extraMembers.push_back(EnumValueInfo(e->name,fmd));
+                  mn=mnsd->add(e->name);
+                  extraMembers.push_back(std::move(fmd));
                 }
               }
               else
@@ -7077,10 +7071,9 @@ static void addEnumValuesToEnums(const Entry *root)
           }
         }
         // move the newly added members into mn
-        for (auto &e : extraMembers)
+        for (auto &md : extraMembers)
         {
-          MemberName *emn=mnsd->add(e.name);
-          emn->push_back(std::move(e.member));
+          mn->push_back(std::move(md));
         }
       }
     }
