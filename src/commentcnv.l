@@ -142,8 +142,7 @@ MAILADR   ("mailto:")?[a-z_A-Z0-9.+-]+"@"[a-z_A-Z0-9-]+("."[a-z_A-Z0-9\-]+)+[a-z
 %x CondLine
 %x ReadAliasArgs
 
-  //- start: NUMBER -------------------------------------------------------------------------
-  // Note same defines in code.l: keep in sync
+  //Note same defines in code.l
 DECIMAL_INTEGER  [1-9][0-9']*[0-9]?[uU]?[lL]?[lL]?
 HEXADECIMAL_INTEGER  "0"[xX][0-9a-zA-Z']+[0-9a-zA-Z]?
 OCTAL_INTEGER  "0"[0-7][0-7']+[0-7]?
@@ -168,7 +167,6 @@ FLOAT_DECIMAL {DEC_FP1}|{DEC_FP2}
 FLOAT_HEXADECIMAL {HEX_FP1}|{HEX_FP2}
 FLOAT_NUMBER {FLOAT_DECIMAL}|{FLOAT_HEXADECIMAL}
 NUMBER {INTEGER_NUMBER}|{FLOAT_NUMBER}
-  //- end: NUMBER ---------------------------------------------------------------------------
 
 %%
 
