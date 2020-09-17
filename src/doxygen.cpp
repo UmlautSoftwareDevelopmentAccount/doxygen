@@ -9120,8 +9120,10 @@ static std::shared_ptr<Entry> parseFile(OutlineParserInterface &parser,
   return fileRoot;
 }
 
+#if MULTITHREADED_INPUT
+
 //! parse the list of input files
-static void parseFilesMultiThreading(const std::shared_ptr<Entry> &root)
+static void parseFiles(const std::shared_ptr<Entry> &root)
 {
 #if USE_LIBCLANG
   if (Doxygen::clangAssistedParsing)
@@ -9137,11 +9139,7 @@ static void parseFilesMultiThreading(const std::shared_ptr<Entry> &root)
 
     std::mutex processedFilesLock;
     // process source files (and their include dependencies)
-    std::size_t numThreads = static_cast<std::size_t>(Config_getInt(NUM_PROC_THREADS));
-    if (numThreads==0)
-    {
-      numThreads = std::thread::hardware_concurrency();
-    }
+    std::size_t numThreads = std::thread::hardware_concurrency();
     msg("Processing input using %lu threads.\n",numThreads);
     ThreadPool threadPool(numThreads);
     std::vector< std::future< std::vector< std::shared_ptr<Entry> > > > results;
@@ -9245,8 +9243,9 @@ static void parseFilesMultiThreading(const std::shared_ptr<Entry> &root)
       auto processFile = [s]() {
         bool ambig;
         FileDef *fd=findFileDef(Doxygen::inputNameLinkedMap,s.c_str(),ambig);
+        auto clangParser = ClangParser::instance()->createTUParser(fd);
         auto parser = getParserForFile(s.c_str());
-        auto fileRoot = parseFile(*parser.get(),fd,s.c_str(),nullptr,true);
+        auto fileRoot = parseFile(*parser.get(),fd,s.c_str(),clangParser.get(),true);
         return fileRoot;
       };
       // dispatch the work and collect the future results
@@ -9257,11 +9256,14 @@ static void parseFilesMultiThreading(const std::shared_ptr<Entry> &root)
     {
       root->moveToSubEntryAndKeep(f.get());
     }
+#warning "Multi-threaded input enabled. This is a highly experimental feature. Only use for doxygen development."
   }
 }
 
+#else // !MULTITHREADED_INPUT
+
 //! parse the list of input files
-static void parseFilesSingleThreading(const std::shared_ptr<Entry> &root)
+static void parseFiles(const std::shared_ptr<Entry> &root)
 {
 #if USE_LIBCLANG
   if (Doxygen::clangAssistedParsing)
@@ -9339,6 +9341,8 @@ static void parseFilesSingleThreading(const std::shared_ptr<Entry> &root)
   }
 }
 
+#endif
+
 // resolves a path that may include symlinks, if a recursive symlink is
 // found an empty string is returned.
 static QCString resolveSymlink(QCString path)
@@ -9407,7 +9411,9 @@ static QCString resolveSymlink(QCString path)
   return QDir::cleanDirPath(result).data();
 }
 
+#if MULTITHREADED_INPUT
 static std::mutex g_pathsVisitedMutex;
+#endif
 static StringUnorderedSet g_pathsVisited(1009);
 
 //----------------------------------------------------------------------------
@@ -9439,7 +9445,9 @@ static int readDir(QFileInfo *fi,
     dirName = resolveSymlink(dirName.data());
     if (dirName.isEmpty()) return 0;            // recursive symlink
 
+#if MULTITHREADED_INPUT
     std::lock_guard<std::mutex> lock(g_pathsVisitedMutex);
+#endif
     if (g_pathsVisited.find(dirName.str())!=g_pathsVisited.end()) return 0; // already visited path
     g_pathsVisited.insert(dirName.str());
   }
@@ -11033,14 +11041,7 @@ void parseInput()
   addSTLSupport(root);
 
   g_s.begin("Parsing files\n");
-  if (Config_getInt(NUM_PROC_THREADS)==1)
-  {
-    parseFilesSingleThreading(root);
-  }
-  else
-  {
-    parseFilesMultiThreading(root);
-  }
+  parseFiles(root);
   g_s.end();
 
   /**************************************************************************
