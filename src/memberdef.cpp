@@ -4050,7 +4050,7 @@ void MemberDefImpl::warnIfUndocumented() const
     warnIfUndocumentedParams();
   }
 }
-static QCString stripTrailingReturn(const QCString trailRet)
+static QCString stripTrailngReturn(const QCString trailRet)
 {
   QCString ret = trailRet;
 
@@ -4077,7 +4077,7 @@ void MemberDefImpl::detectUndocumentedParams(bool hasParamCommand,bool hasReturn
     const ArgumentList &defArgList=isDocsForDefinition() ?  argumentList() : declArgumentList();
     if (!defArgList.trailingReturnType().isEmpty())
     {
-      QCString strippedTrailingReturn = stripTrailingReturn(defArgList.trailingReturnType());
+      QCString strippedTrailingReturn = stripTrailngReturn(defArgList.trailingReturnType());
       isVoidReturn = (strippedTrailingReturn=="void") || (strippedTrailingReturn.right(5)==" void");
     }
   }
