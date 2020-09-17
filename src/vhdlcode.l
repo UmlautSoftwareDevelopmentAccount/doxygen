@@ -1497,9 +1497,6 @@ XILINX      "INST"|"NET"|"PIN"|"BLKNM"|"BUFG"|"COLLAPSE"|"CPLD"|"COMPGRP"|"CONFI
 			   BEGIN(Bases);
                          }
 
-<*>[\x80-\xFF]*          { // keep utf8 characters together...
-                           g_code->codify(vhdlcodeYYtext);
-                         }
 <*>.                     {
                            g_code->codify(vhdlcodeYYtext);
                          }
