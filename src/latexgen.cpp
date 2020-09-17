@@ -386,8 +386,7 @@ static void writeLatexMakefile()
 static void writeMakeBat()
 {
 #if defined(_MSC_VER)
-  QCString dir=Config_getString(LATEX_OUTPUT);
-  QCString fileName=dir+"/make.bat";
+  QCString fileName=dir()+"/make.bat";
   QCString latex_command = theTranslator->latexCommandName();
   QCString mkidx_command = Config_getString(MAKEINDEX_CMD_NAME);
   QFile file(fileName);
