@@ -440,6 +440,7 @@ static void addCite(yyscan_t yyscanner);
 
 //-----------------------------------------------------------------------------
 
+
 #undef        YY_INPUT
 #define        YY_INPUT(buf,result,max_size) result=yyread(yyscanner,buf,max_size);
 
@@ -859,7 +860,7 @@ RCSTAG    "$"{ID}":"[^\n$]+"$"
                                           else // yyextra->inContext==OutputBrief
                                           { // only go to the detailed description if we have
                                             // found some brief description and not just whitespace
-                                            endBrief(yyscanner,TRUE);
+                                            endBrief(yyscanner,FALSE);
                                           }
                                           lineCount(yyscanner);
                                         }
@@ -2127,8 +2128,8 @@ static bool handleDetails(yyscan_t yyscanner,const QCString &, const QCStringLis
   struct yyguts_t *yyg = (struct yyguts_t*)yyscanner;
   if (yyextra->inContext!=OutputBrief)
   {
-    addOutput(yyscanner,"\\ilinebr\\ilinebr "); // treat @details outside brief description
-                                                // as a new paragraph
+    addOutput(yyscanner,"\n\n"); // treat @details outside brief description
+                       // as a new paragraph
   }
   setOutput(yyscanner,OutputDoc);
   return FALSE;
@@ -3234,7 +3235,6 @@ bool CommentScanner::parseCommentBlock(/* in */     OutlineParserInterface *pars
   yyextra->guards = std::stack<GuardedSection>();
   yyextra->langParser     = parser;
   yyextra->current        = curEntry;
-  yyextra->current->docLine = (lineNr > 1 ? lineNr-1: 1);
   if (comment.isEmpty()) return FALSE; // avoid empty strings
   yyextra->inputString    = comment;
   yyextra->inputString.append(" ");
