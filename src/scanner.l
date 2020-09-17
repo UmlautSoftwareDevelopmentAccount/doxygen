@@ -6506,17 +6506,10 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
 					  BEGIN( ReadFuncArgType ) ;
   					}
 <Prototype>"("({ID}"::")*({B}*[&*])+	{
-					  if (yyextra->insidePHP) // reference parameter
-					  {
-					    REJECT;
-					  }
-					  else
-					  {
-					    yyextra->current->type+=yyextra->current->name+yytext;
-					    yyextra->current->name.resize(0);
-					    BEGIN( PrototypePtr );
-					  }
-					}
+  					  yyextra->current->type+=yyextra->current->name+yytext;
+					  yyextra->current->name.resize(0);
+  					  BEGIN( PrototypePtr );
+  					}
 <PrototypePtr>{SCOPENAME}		{
   					  yyextra->current->name+=yytext;
   					}
