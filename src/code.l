@@ -862,10 +862,9 @@ NUMBER {INTEGER_NUMBER}|{FLOAT_NUMBER}
 					    if (getResolvedClass(yyextra->currentDefinition,yyextra->sourceFileDef,yyextra->curClassName)==0)
 					    {
 					      DBG_CTX((stderr,"Adding new class %s\n",yyextra->curClassName.data()));
-                                              std::unique_ptr<ClassDef> ncd_p { createClassDef("<code>",1,1,
+                                              std::unique_ptr<ClassDef> ncd { createClassDef("<code>",1,1,
 				 		  yyextra->curClassName,ClassDef::Class,0,0,FALSE) };
-                                              ClassDef *ncd = ncd_p.get();
-					      yyextra->codeClassMap.emplace(std::make_pair(yyextra->curClassName.str(),std::move(ncd_p)));
+					      yyextra->codeClassMap.emplace(std::make_pair(yyextra->curClassName.str(),std::move(ncd)));
 					      // insert base classes.
 					      char *s=yyextra->curClassBases.first();
 					      while (s)
@@ -877,7 +876,7 @@ NUMBER {INTEGER_NUMBER}|{FLOAT_NUMBER}
                                                   bcd=it->second.get();
                                                 }
 						if (bcd==0) bcd=getResolvedClass(yyextra->currentDefinition,yyextra->sourceFileDef,s);
-						if (bcd && bcd!=ncd)
+						if (bcd && bcd!=ncd.get())
 						{
 						  ncd->insertBaseClass(const_cast<ClassDef*>(bcd),s,Public,Normal);
 						}
@@ -2331,7 +2330,7 @@ void VariableContext::addVariable(yyscan_t yyscanner,const QCString &type,const 
   {
     // probably a template class
     QCString typeName(ltype.left(i));
-    const ClassDef* newDef = 0;
+    ClassDef* newDef = 0;
     QCString templateArgs(ltype.right(ltype.length() - i));
     it = yyextra->codeClassMap.find(typeName.str());
     if (!typeName.isEmpty())
@@ -3967,7 +3966,7 @@ void CCodeParser::resetCodeParserState()
   //printf("***CodeParser::reset()\n");
   yyextra->forceTagReference.resize(0);
   yyextra->theVarContext.clear();
-  while (!yyextra->classScopeLengthStack.empty()) yyextra->classScopeLengthStack.pop();
+  yyextra->classScopeLengthStack = {};
   yyextra->codeClassMap.clear();
   yyextra->curClassBases.clear();
   yyextra->anchorCount = 0;
@@ -4014,7 +4013,7 @@ void CCodeParser::parseCode(CodeOutputInterface &od,const char *className,const 
   yyextra->sharpCount    = 0;
   yyextra->insideTemplate = FALSE;
   yyextra->theCallContext.clear();
-  while (!yyextra->scopeStack.empty()) yyextra->scopeStack.pop();
+  yyextra->scopeStack = {};
   yyextra->classScope    = className;
   //printf("parseCCode %s\n",className);
   yyextra->exampleBlock  = exBlock; 
