@@ -159,7 +159,7 @@ int Trace::s_indent = 0;
 // is character at position i in data an escape that prevents ending an emphasis section
 // so for example *bla (*.txt) is cool*
 #define ignoreCloseEmphChar(i) \
-  (data[i]=='('  || data[i]=='{' || data[i]=='[' || (data[i]=='<' && data[i+1]!='/') || \
+  (data[i]=='('  || data[i]=='{' || data[i]=='[' || data[i]=='<' || \
    data[i]=='\\' || \
    data[i]=='@')
 
@@ -194,7 +194,7 @@ Markdown::Markdown(const char *fileName,int lineNr,int indentLevel)
 enum Alignment { AlignNone, AlignLeft, AlignCenter, AlignRight };
 
 
-//---------- constants -------
+//---------- contants -------
 //
 const uchar    g_utf8_nbsp[3] = { 0xc2, 0xa0, 0}; // UTF-8 nbsp
 const char    *g_doxy_nsbp = "&_doxy_nbsp;";            // doxygen escape command for UTF-8 nbsp
@@ -356,13 +356,12 @@ int Markdown::findEmphasisChar(const char *data, int size, char c, int c_size)
   {
     while (i<size && data[i]!=c    && data[i]!='`' &&
                      data[i]!='\\' && data[i]!='@' &&
-                     !(data[i]=='/' && data[i-1]=='<') && // html end tag also ends emphasis
                      data[i]!='\n') i++;
     //printf("findEmphasisChar: data=[%s] i=%d c=%c\n",data,i,data[i]);
 
     // not counting escaped chars or characters that are unlikely
     // to appear as the end of the emphasis char
-    if (ignoreCloseEmphChar(i-1))
+    if (i>0 && ignoreCloseEmphChar(i-1))
     {
       i++;
       continue;
@@ -430,10 +429,6 @@ int Markdown::findEmphasisChar(const char *data, int size, char c, int c_size)
       {
         i++;
       }
-    }
-    else if (data[i-1]=='<' && data[i]=='/') // html end tag invalidates emphasis
-    {
-      return 0;
     }
     else if (data[i]=='\n') // end * or _ at paragraph boundary
     {
@@ -1986,7 +1981,7 @@ int Markdown::writeTableBlock(const char *data,int size)
       }
       // need at least one space on either side of the cell text in
       // order for doxygen to do other formatting
-      m_out.addStr("> " + cellText + " \\ilinebr </" + cellTag + ">");
+      m_out.addStr("> " + cellText + "\\ilinebr </" + cellTag + ">");
     }
     cellTag = "td";
     cellClass = "class=\"markdownTableBody";
@@ -2731,7 +2726,9 @@ void MarkdownOutlineParser::parseInput(const char *fileName,
   Protection prot=Public;
   bool needsEntry = FALSE;
   int position=0;
-  QCString processedDocs = markdown.process(docs,lineNr);
+  int startNewlines;
+  QCString processedDocs = markdown.process(docs,startNewlines);
+  lineNr += startNewlines;
   while (p->commentScanner.parseCommentBlock(
         this,
         current.get(),

@@ -409,9 +409,11 @@ struct commentscanYY_state
 };
 
 
+#if MULTITHREADED_INPUT
 static std::mutex g_sectionMutex;
 static std::mutex g_formulaMutex;
 static std::mutex g_citeMutex;
+#endif
 
 //-----------------------------------------------------------------------------
 
@@ -439,6 +441,7 @@ static yy_size_t yyread(yyscan_t yyscanner,char *buf,yy_size_t max_size);
 static void addCite(yyscan_t yyscanner);
 
 //-----------------------------------------------------------------------------
+
 
 #undef        YY_INPUT
 #define        YY_INPUT(buf,result,max_size) result=yyread(yyscanner,buf,max_size);
@@ -859,7 +862,7 @@ RCSTAG    "$"{ID}":"[^\n$]+"$"
                                           else // yyextra->inContext==OutputBrief
                                           { // only go to the detailed description if we have
                                             // found some brief description and not just whitespace
-                                            endBrief(yyscanner,TRUE);
+                                            endBrief(yyscanner,FALSE);
                                           }
                                           lineCount(yyscanner);
                                         }
@@ -2127,8 +2130,8 @@ static bool handleDetails(yyscan_t yyscanner,const QCString &, const QCStringLis
   struct yyguts_t *yyg = (struct yyguts_t*)yyscanner;
   if (yyextra->inContext!=OutputBrief)
   {
-    addOutput(yyscanner,"\\ilinebr\\ilinebr "); // treat @details outside brief description
-                                                // as a new paragraph
+    addOutput(yyscanner,"\n\n"); // treat @details outside brief description
+                       // as a new paragraph
   }
   setOutput(yyscanner,OutputDoc);
   return FALSE;
@@ -2819,7 +2822,9 @@ static void addXRefItem(yyscan_t yyscanner,
   if (listName==0) return;
   //printf("addXRefItem(%s,%s,%s,%d)\n",listName,itemTitle,listTitle,append);
 
+#if MULTITHREADED_INPUT
   std::unique_lock<std::mutex> lock(g_sectionMutex);
+#endif
 
   RefList *refList = RefListManager::instance().add(listName,listTitle,itemTitle);
   RefItem *item = 0;
@@ -2893,7 +2898,9 @@ static void addXRefItem(yyscan_t yyscanner,
 // not already added. Returns the label of the formula.
 static QCString addFormula(yyscan_t yyscanner)
 {
+#if MULTITHREADED_INPUT
   std::unique_lock<std::mutex> lock(g_formulaMutex);
+#endif
   struct yyguts_t *yyg = (struct yyguts_t*)yyscanner;
   QCString formLabel;
   QCString fText=yyextra->formulaText.simplifyWhiteSpace();
@@ -2915,7 +2922,9 @@ static SectionType sectionLevelToType(int level)
 
 static void addSection(yyscan_t yyscanner)
 {
+#if MULTITHREADED_INPUT
   std::unique_lock<std::mutex> lock(g_sectionMutex);
+#endif
   struct yyguts_t *yyg = (struct yyguts_t*)yyscanner;
   SectionManager &sm = SectionManager::instance();
   const SectionInfo *si = sm.find(yyextra->sectionLabel);
@@ -2948,7 +2957,9 @@ static void addSection(yyscan_t yyscanner)
 
 static void addCite(yyscan_t yyscanner)
 {
+#if MULTITHREADED_INPUT
   std::unique_lock<std::mutex> lock(g_citeMutex);
+#endif
   struct yyguts_t *yyg = (struct yyguts_t*)yyscanner;
   QCString name=yytext;
   if (yytext[0] =='"')
@@ -3116,7 +3127,9 @@ static inline void setOutput(yyscan_t yyscanner,OutputContext ctx)
 
 static void addAnchor(yyscan_t yyscanner,const char *anchor)
 {
+#if MULTITHREADED_INPUT
   std::unique_lock<std::mutex> lock(g_sectionMutex);
+#endif
   struct yyguts_t *yyg = (struct yyguts_t*)yyscanner;
   SectionManager &sm = SectionManager::instance();
   const SectionInfo *si = sm.find(anchor);
@@ -3234,7 +3247,6 @@ bool CommentScanner::parseCommentBlock(/* in */     OutlineParserInterface *pars
   yyextra->guards = std::stack<GuardedSection>();
   yyextra->langParser     = parser;
   yyextra->current        = curEntry;
-  yyextra->current->docLine = (lineNr > 1 ? lineNr-1: 1);
   if (comment.isEmpty()) return FALSE; // avoid empty strings
   yyextra->inputString    = comment;
   yyextra->inputString.append(" ");

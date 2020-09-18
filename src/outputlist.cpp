@@ -30,35 +30,19 @@
 #include "docparser.h"
 #include "vhdldocgen.h"
 
-
-OutputList::OutputList()
+OutputList::OutputList(bool)
 {
   //printf("OutputList::OutputList()\n");
-}
-
-OutputList::OutputList(const OutputList &ol)
-{
-  for (const auto &og : ol.m_outputs)
-  {
-    m_outputs.emplace_back(og->clone());
-  }
-}
-
-OutputList &OutputList::operator=(const OutputList &ol)
-{
-  if (this!=&ol)
-  {
-    for (const auto &og : ol.m_outputs)
-    {
-      m_outputs.emplace_back(og->clone());
-    }
-  }
-  return *this;
 }
 
 OutputList::~OutputList()
 {
   //printf("OutputList::~OutputList()\n");
+}
+
+void OutputList::add(OutputGenerator *og)
+{
+  if (og) m_outputs.emplace_back(og);
 }
 
 void OutputList::disableAllBut(OutputGenerator::OutputType o)

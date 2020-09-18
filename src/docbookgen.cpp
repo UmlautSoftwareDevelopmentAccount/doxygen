@@ -89,7 +89,7 @@ inline void writeDocbookCodeString(FTextStream &t,const char *s, int &col)
     {
       case '\t':
         {
-          int tabSize = Config_getInt(TAB_SIZE);
+          static int tabSize = Config_getInt(TAB_SIZE);
           int spacesToNextTabStop = tabSize - (col%tabSize);
           col+=spacesToNextTabStop;
           while (spacesToNextTabStop--) t << "&#32;";
@@ -140,6 +140,7 @@ DocbookCodeGenerator::DocbookCodeGenerator(FTextStream &t)
 
 DocbookCodeGenerator::DocbookCodeGenerator()
 {
+  m_prettyCode=Config_getBool(DOCBOOK_PROGRAMLISTING);
 }
 
 DocbookCodeGenerator::~DocbookCodeGenerator() {}
@@ -254,24 +255,25 @@ void DocbookCodeGenerator::endCodeFragment()
   m_t << "</computeroutput></literallayout>" << endl;
 }
 
-DocbookGenerator::DocbookGenerator() : OutputGenerator(Config_getString(DOCBOOK_OUTPUT))
+DocbookGenerator::DocbookGenerator() : OutputGenerator()
 {
 DB_GEN_C
-}
-
-DocbookGenerator::DocbookGenerator(const DocbookGenerator &og) : OutputGenerator(og)
-{
-}
-
-DocbookGenerator &DocbookGenerator::operator=(const DocbookGenerator &og)
-{
-  OutputGenerator::operator=(og);
-  return *this;
-}
-
-std::unique_ptr<OutputGenerator> DocbookGenerator::clone() const
-{
-  return std::make_unique<DocbookGenerator>(*this);
+  m_dir=Config_getString(DOCBOOK_OUTPUT);
+  //insideTabbing=FALSE;
+  //firstDescItem=TRUE;
+  //disableLinks=FALSE;
+  //m_indent=0;
+  //templateMemberItem = FALSE;
+  m_prettyCode=Config_getBool(DOCBOOK_PROGRAMLISTING);
+  m_denseText = FALSE;
+  m_inGroup = FALSE;
+  m_inDetail = FALSE;
+  m_levelListItem = 0;
+  m_descTable = FALSE;
+  m_inLevel = -1;
+  m_firstMember = FALSE;
+  for (size_t i = 0 ; i < sizeof(m_inListItem) / sizeof(*m_inListItem) ; i++) m_inListItem[i] = FALSE;
+  for (size_t i = 0 ; i < sizeof(m_inSimpleSect) / sizeof(*m_inSimpleSect) ; i++) m_inSimpleSect[i] = FALSE;
 }
 
 DocbookGenerator::~DocbookGenerator()
@@ -426,7 +428,7 @@ DB_GEN_C2("IndexSections " << is)
 void DocbookGenerator::endIndexSection(IndexSections is)
 {
 DB_GEN_C2("IndexSections " << is)
-  bool sourceBrowser = Config_getBool(SOURCE_BROWSER);
+  static bool sourceBrowser = Config_getBool(SOURCE_BROWSER);
   switch (is)
   {
     case isTitlePageStart:
@@ -911,7 +913,7 @@ DB_GEN_C
   t << "                <imagedata width=\"50%\" align=\"center\" valign=\"middle\" scalefit=\"0\" fileref=\""
                          << relPath << fileName << ".png\">" << "</imagedata>" << endl;
   t << "            </imageobject>" << endl;
-  d.writeImage(t,dir(),relPath,fileName,FALSE);
+  d.writeImage(t,m_dir,relPath,fileName,FALSE);
   t << "        </mediaobject>" << endl;
   t << "    </informalfigure>" << endl;
   t << "</para>" << endl;
@@ -1102,7 +1104,7 @@ DB_GEN_C
 void DocbookGenerator::endGroupCollaboration(DotGroupCollaboration &g)
 {
 DB_GEN_C
-  g.writeGraph(t,GOF_BITMAP,EOF_DocBook,dir(),fileName(),relPath,FALSE);
+  g.writeGraph(t,GOF_BITMAP,EOF_DocBook,Config_getString(DOCBOOK_OUTPUT),m_fileName,relPath,FALSE);
 }
 void DocbookGenerator::startDotGraph()
 {
@@ -1111,7 +1113,7 @@ DB_GEN_C
 void DocbookGenerator::endDotGraph(DotClassGraph &g)
 {
 DB_GEN_C
-  g.writeGraph(t,GOF_BITMAP,EOF_DocBook,dir(),fileName(),relPath,TRUE,FALSE);
+  g.writeGraph(t,GOF_BITMAP,EOF_DocBook,Config_getString(DOCBOOK_OUTPUT),m_fileName,relPath,TRUE,FALSE);
 }
 void DocbookGenerator::startInclDepGraph()
 {
@@ -1120,7 +1122,7 @@ DB_GEN_C
 void DocbookGenerator::endInclDepGraph(DotInclDepGraph &g)
 {
 DB_GEN_C
-  QCString fn = g.writeGraph(t,GOF_BITMAP,EOF_DocBook,dir(),fileName(),relPath,FALSE);
+  QCString fn = g.writeGraph(t,GOF_BITMAP,EOF_DocBook,Config_getString(DOCBOOK_OUTPUT), m_fileName,relPath,FALSE);
 }
 void DocbookGenerator::startCallGraph()
 {
@@ -1129,7 +1131,7 @@ DB_GEN_C
 void DocbookGenerator::endCallGraph(DotCallGraph &g)
 {
 DB_GEN_C
-  QCString fn = g.writeGraph(t,GOF_BITMAP,EOF_DocBook,dir(),fileName(),relPath,FALSE);
+  QCString fn = g.writeGraph(t,GOF_BITMAP,EOF_DocBook,Config_getString(DOCBOOK_OUTPUT), m_fileName,relPath,FALSE);
 }
 void DocbookGenerator::startDirDepGraph()
 {
@@ -1138,7 +1140,7 @@ DB_GEN_C
 void DocbookGenerator::endDirDepGraph(DotDirDeps &g)
 {
 DB_GEN_C
-  QCString fn = g.writeGraph(t,GOF_BITMAP,EOF_DocBook,dir(),fileName(),relPath,FALSE);
+  QCString fn = g.writeGraph(t,GOF_BITMAP,EOF_DocBook,Config_getString(DOCBOOK_OUTPUT), m_fileName,relPath,FALSE);
 }
 void DocbookGenerator::startMemberDocList()
 {

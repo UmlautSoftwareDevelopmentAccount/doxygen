@@ -1,10 +1,10 @@
 /******************************************************************************
  *
- * Copyright (C) 1997-2020 by Dimitri van Heesch.
+ * Copyright (C) 1997-2014 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
- * documentation under the terms of the GNU General Public License is hereby
- * granted. No representations are made about the suitability of this software
+ * documentation under the terms of the GNU General Public License is hereby 
+ * granted. No representations are made about the suitability of this software 
  * for any purpose. It is provided "as is" without express or implied warranty.
  * See the GNU General Public License for more details.
  *
@@ -60,9 +60,9 @@ struct sqlcodeYY_state
      QCString      exampleName;
      QCString      classScope;
 
-     const FileDef    *sourceFileDef;
-     const Definition *currentDefinition;
-     const MemberDef  *currentMemberDef;
+     FileDef      *sourceFileDef;
+     Definition   *currentDefinition;
+     MemberDef    *currentMemberDef;
      bool          includeCodeFragment;
      const char   *currentFontClass;
 };
@@ -71,18 +71,18 @@ struct sqlcodeYY_state
 static const char *stateToString(int state);
 #endif
 
-static void setCurrentDoc(yyscan_t yyscanner,const QCString &anchor);
+static void setCurrentDoc(const QCString &anchor,yyscan_t yyscanner);
 static void startCodeLine(yyscan_t yyscanner);
 static void endFontClass(yyscan_t yyscanner);
 static void endCodeLine(yyscan_t yyscanner);
 static void nextCodeLine(yyscan_t yyscanner);
-static void codifyLines(yyscan_t yyscanner,const char *text);
-static void startFontClass(yyscan_t yyscanner,const char *s);
+static void codifyLines(char *text,yyscan_t yyscanner);
+static void startFontClass(const char *s,yyscan_t yyscanner);
 static int countLines(yyscan_t yyscanner);
-static yy_size_t yyread(yyscan_t yyscanner,char *buf,yy_size_t max_size);
+static yy_size_t yyread(char *buf,yy_size_t max_size,yyscan_t yyscanner);
 
 #undef YY_INPUT
-#define YY_INPUT(buf,result,max_size) result=yyread(yyscanner,buf,max_size);
+#define YY_INPUT(buf,result,max_size) result=yyread(buf,max_size,yyscanner);
 
 %}
 
@@ -110,7 +110,7 @@ typekeyword     (?i:"ARRAY"|"BIGINT"|"BINARY"|"BLOB"|"BOOLEAN"|"CHAR"|"CHARACTER
 
 flowkeyword     (?i:"CASE"|"IF"|"ELSE"|"BEGIN"|"END"|"WHILE")
 
-literalkeyword  (?i:"false"|"true"|"NULL"|"UNKNOWN")
+literalkeyword  (?i:"FALSE"|"TRUE"|"NULL"|"UNKNOWN")
 stringliteral   (\"[^"]*\")|('[^']*')
 number          [0-9]+
 literals        ({literalkeyword}|{stringliteral}|{number})
@@ -126,107 +126,104 @@ commentclose    "\*/"
 %%
 
 {literals}          {
-                        startFontClass(yyscanner,"stringliteral");
-                        codifyLines(yyscanner,yytext);
+                        startFontClass("stringliteral",yyscanner);
+                        codifyLines(yytext,yyscanner);
                         endFontClass(yyscanner);
                     }
-
+                
 
 {keyword}           {
-                        startFontClass(yyscanner,"keyword");
-                        codifyLines(yyscanner,yytext);
+                        startFontClass("keyword",yyscanner);
+                        codifyLines(yytext,yyscanner);
                         endFontClass(yyscanner);
                     }
 
 {flowkeyword}       {
-                        startFontClass(yyscanner,"keywordflow");
-                        codifyLines(yyscanner,yytext);
+                        startFontClass("keywordflow",yyscanner);
+                        codifyLines(yytext,yyscanner);
                         endFontClass(yyscanner);
                     }
 
 {typekeyword}       {
-                        startFontClass(yyscanner,"keywordtype");
-                        codifyLines(yyscanner,yytext);
+                        startFontClass("keywordtype",yyscanner);
+                        codifyLines(yytext,yyscanner);
                         endFontClass(yyscanner);
                     }
 
 {variable}          {
-                        startFontClass(yyscanner,"preprocessor");
-                        codifyLines(yyscanner,yytext);
+                        startFontClass("preprocessor",yyscanner);
+                        codifyLines(yytext,yyscanner);
                         endFontClass(yyscanner);
                     }
 
 {simplecomment}     {
-                        startFontClass(yyscanner,"comment");
-                        codifyLines(yyscanner,yytext);
+                        startFontClass("comment",yyscanner);
+                        codifyLines(yytext,yyscanner);
                         endFontClass(yyscanner);
                     }
 
 {commentopen}       {
-                        startFontClass(yyscanner,"comment");
-                        codifyLines(yyscanner,yytext);
+                        startFontClass("comment",yyscanner);
+                        codifyLines(yytext,yyscanner);
                         BEGIN(COMMENT);
                     }
 
 <COMMENT>.          {
-                        codifyLines(yyscanner,yytext);
-
+                        codifyLines(yytext,yyscanner);
+ 
                     }
 <COMMENT>{nl}       {
-                        codifyLines(yyscanner,yytext);
+                        codifyLines(yytext,yyscanner);
                     }
 
 <COMMENT>{commentclose} {
-                        codifyLines(yyscanner,yytext);
+                        codifyLines(yytext,yyscanner);
                         endFontClass(yyscanner);
                         BEGIN(INITIAL);
                     }
-
+                    
 {idchar}            {
-                        codifyLines(yyscanner,yytext);
+                        codifyLines(yytext,yyscanner);
                     }
 
 {nl}                {
-                        codifyLines(yyscanner,yytext);
+                        codifyLines(yytext,yyscanner);
                     }
 
-[\x80-\xFF]*        { // keep utf8 characters together...
-                        codifyLines(yyscanner,yytext);
-                    }
 .                   {
-                        codifyLines(yyscanner,yytext);
+                        codifyLines(yytext,yyscanner);
                     }
 
 %%
 
 
-static void setCurrentDoc(yyscan_t yyscanner,const QCString &anchor)
+static void setCurrentDoc(const QCString &anchor, yyscan_t yyscanner)
 {
   struct yyguts_t *yyg = (struct yyguts_t*)yyscanner;
   if (Doxygen::searchIndex)
   {
     if (yyextra->searchCtx)
     {
-      yyextra->code->setCurrentDoc(yyextra->searchCtx,yyextra->searchCtx->anchor(),false);
+      Doxygen::searchIndex->setCurrentDoc(yyextra->searchCtx,yyextra->searchCtx->anchor(),FALSE);
     }
     else
     {
-      yyextra->code->setCurrentDoc(yyextra->sourceFileDef,anchor,true);
+      Doxygen::searchIndex->setCurrentDoc(yyextra->sourceFileDef,anchor,TRUE);
     }
   }
 }
 
 /*! start a new line of code, inserting a line number if yyextra->sourceFileDef
- * is true. If a definition starts at the current line, then the line
+ * is TRUE. If a definition starts at the current line, then the line
  * number is linked to the documentation of that definition.
  */
 static void startCodeLine(yyscan_t yyscanner)
 {
   struct yyguts_t *yyg = (struct yyguts_t*)yyscanner;
   if (yyextra->sourceFileDef)
-  {
-    const Definition *d = yyextra->sourceFileDef->getSourceDefinition(yyextra->yyLineNr);
-
+  {   
+    Definition *d   = yyextra->sourceFileDef->getSourceDefinition(yyextra->yyLineNr);
+    
     if (!yyextra->includeCodeFragment && d && d->isLinkableInProject())
     {
       yyextra->currentDefinition = d;
@@ -239,14 +236,14 @@ static void startCodeLine(yyscan_t yyscanner)
         yyextra->code->writeLineNumber(yyextra->currentMemberDef->getReference(),
                             yyextra->currentMemberDef->getOutputFileBase(),
                             yyextra->currentMemberDef->anchor(),yyextra->yyLineNr);
-        setCurrentDoc(yyscanner,lineAnchor);
+        setCurrentDoc(lineAnchor,yyscanner);
       }
       else
       {
         yyextra->code->writeLineNumber(d->getReference(),
                             d->getOutputFileBase(),
                             0,yyextra->yyLineNr);
-        setCurrentDoc(yyscanner,lineAnchor);
+        setCurrentDoc(lineAnchor,yyscanner);
       }
     }
     else
@@ -254,9 +251,9 @@ static void startCodeLine(yyscan_t yyscanner)
       yyextra->code->writeLineNumber(0,0,0,yyextra->yyLineNr);
     }
   }
-
+  
   yyextra->code->startCodeLine(yyextra->sourceFileDef);
-
+  
   if (yyextra->currentFontClass)
   {
     yyextra->code->startFontClass(yyextra->currentFontClass);
@@ -285,43 +282,42 @@ static void nextCodeLine(yyscan_t yyscanner)
   struct yyguts_t *yyg = (struct yyguts_t*)yyscanner;
   const char *fc = yyextra->currentFontClass;
   endCodeLine(yyscanner);
-  if (yyextra->yyLineNr<yyextra->inputLines)
+  if (yyextra->yyLineNr<yyextra->inputLines) 
   {
     yyextra->currentFontClass = fc;
     startCodeLine(yyscanner);
   }
 }
 
-static void codifyLines(yyscan_t yyscanner,const char *text)
+static void codifyLines(char *text,yyscan_t yyscanner)
 {
   struct yyguts_t *yyg = (struct yyguts_t*)yyscanner;
-  const char *p=text,*sp=p;
+  char *p=text,*sp=p;
   char c;
-  bool done=false;
+  bool done=FALSE;
+  
   while (!done)
   {
     sp=p;
+    
     while ((c=*p++) && c!='\n') { }
+    
     if (c=='\n')
     {
       yyextra->yyLineNr++;
-      int l = (int)(p-sp-1);
-      char *tmp = (char*)malloc(l+1);
-      memcpy(tmp,sp,l);
-      tmp[l]='\0';
-      yyextra->code->codify(tmp);
-      free(tmp);
+      *(p-1)='\0';
+      yyextra->code->codify(sp);
       nextCodeLine(yyscanner);
     }
     else
     {
       yyextra->code->codify(sp);
-      done=true;
+      done=TRUE;
     }
   }
 }
 
-static void startFontClass(yyscan_t yyscanner,const char *s)
+static void startFontClass(const char *s,yyscan_t yyscanner)
 {
   struct yyguts_t *yyg = (struct yyguts_t*)yyscanner;
   endFontClass(yyscanner);
@@ -336,64 +332,130 @@ static int countLines(yyscan_t yyscanner)
   const char *p=yyextra->inputString;
   char c;
   int count=1;
-  while ((c=*p))
-  {
-    p++ ;
-    if (c=='\n') count++;
+  while ((c=*p)) 
+  { 
+    p++ ; 
+    if (c=='\n') count++;  
   }
-  if (p>yyextra->inputString && *(p-1)!='\n')
+  if (p>yyextra->inputString && *(p-1)!='\n') 
   { // last line does not end with a \n, so we add an extra
     // line and explicitly terminate the line after parsing.
-    count++,
-    yyextra->needsTermination=true;
-  }
+    count++, 
+    yyextra->needsTermination=TRUE; 
+  } 
   return count;
 }
 
-static yy_size_t yyread(yyscan_t yyscanner,char *buf,yy_size_t max_size)
+static yy_size_t yyread(char *buf,yy_size_t max_size,yyscan_t yyscanner)
 {
   struct yyguts_t *yyg = (struct yyguts_t*)yyscanner;
-  yy_size_t inputPosition = yyextra->inputPosition;
-  const char *s = yyextra->inputString + inputPosition;
   yy_size_t c=0;
-  while( c < max_size && *s )
+  while( c < max_size && yyextra->inputString[yyextra->inputPosition] )
   {
-    *buf++ = *s++;
-    c++;
+    *buf = yyextra->inputString[yyextra->inputPosition++] ;
+    c++; buf++;
   }
-  yyextra->inputPosition += c;
   return c;
 }
 
 
 // public interface -----------------------------------------------------------
+static yyscan_t yyscanner;
+static struct sqlcodeYY_state sqlcode_extra;
 
-struct SQLCodeParser::Private
-{
-  yyscan_t yyscanner;
-  sqlcodeYY_state state;
-};
+void parseSqlCode(
+    CodeOutputInterface &od,
+    const char * /*className*/,
+    const QCString &s,
+    bool exBlock,
+    const char *exName,
+    FileDef *fd,
+    int startLine,
+    int endLine,
+    bool inlineFragment,
+    const MemberDef *,
+    bool,const Definition *searchCtx,
+    bool /*collectXRefs*/
+    ) 
+{  
+  if (s.isEmpty()) return;
 
-SQLCodeParser::SQLCodeParser() : p(std::make_unique<Private>())
-{
-  sqlcodeYYlex_init_extra(&p->state, &p->yyscanner);
+  sqlcodeYYlex_init_extra(&sqlcode_extra, &yyscanner);
+  struct yyguts_t *yyg = (struct yyguts_t*)yyscanner;
+
 #ifdef FLEX_DEBUG
   sqlcodeYYset_debug(1,yyscanner);
 #endif
-  resetCodeParserState();
+
+  printlex(yy_flex_debug, TRUE, __FILE__, fd ? fd->fileName().data(): NULL);
+  
+  yyextra->code = &od;
+  yyextra->inputString   = s;
+  yyextra->inputPosition = 0;
+  yyextra->currentFontClass = 0;
+  yyextra->needsTermination = FALSE;
+  yyextra->searchCtx=searchCtx;
+  
+  if (startLine!=-1)
+    yyextra->yyLineNr    = startLine;
+  else
+    yyextra->yyLineNr    = 1;
+  
+  if (endLine!=-1)
+    yyextra->inputLines  = endLine+1;
+  else
+    yyextra->inputLines  = yyextra->yyLineNr + countLines(yyscanner) - 1;
+  
+  yyextra->exampleBlock  = exBlock; 
+  yyextra->exampleName   = exName;
+  yyextra->sourceFileDef = fd;
+
+  bool cleanupSourceDef = FALSE;
+  
+  if (exBlock && fd==0)
+  {
+    // create a dummy filedef for the example
+    yyextra->sourceFileDef = createFileDef("",(exName?exName:"generated"));
+    cleanupSourceDef = TRUE;
+  }
+  
+  if (yyextra->sourceFileDef) 
+  {
+    setCurrentDoc("l00001",yyscanner);
+  }
+
+  yyextra->includeCodeFragment = inlineFragment;
+  // Starts line 1 on the output  
+  startCodeLine(yyscanner);
+
+  sqlcodeYYrestart( yyin,yyscanner );
+
+  sqlcodeYYlex(yyscanner);
+
+  if (yyextra->needsTermination)
+  {
+    endCodeLine(yyscanner);
+  }
+  if (cleanupSourceDef)
+  {
+    // delete the temporary file definition used for this example
+    delete yyextra->sourceFileDef;
+    yyextra->sourceFileDef=0;
+  }
+  
+  printlex(yy_flex_debug, FALSE, __FILE__, fd ? fd->fileName().data(): NULL);
+  sqlcodeYYlex_destroy(yyscanner);
+  return;
 }
 
-SQLCodeParser::~SQLCodeParser()
+void resetSqlCodeParserState() 
 {
-  sqlcodeYYlex_destroy(p->yyscanner);
-}
-
-void SQLCodeParser::resetCodeParserState()
-{
-  struct yyguts_t *yyg = (struct yyguts_t*)p->yyscanner;
+  struct yyguts_t *yyg = (struct yyguts_t*)yyscanner;
   yyextra->currentDefinition = 0;
   yyextra->currentMemberDef = 0;
 }
+
+//---------------------------------------------------------------------------------
 
 void SQLCodeParser::parseCode(CodeOutputInterface &codeOutIntf,
                const char *scopeName,
@@ -411,68 +473,14 @@ void SQLCodeParser::parseCode(CodeOutputInterface &codeOutIntf,
                bool collectXRefs
               )
 {
-  yyscan_t yyscanner = p->yyscanner;
-  struct yyguts_t *yyg = (struct yyguts_t*)yyscanner;
+  parseSqlCode(codeOutIntf,scopeName,input,isExampleBlock,exampleName,
+                fileDef,startLine,endLine,inlineFragment,memberDef,
+                showLineNumbers,searchCtx,collectXRefs);
+}
 
-  if (input.isEmpty()) return;
-
-  printlex(yy_flex_debug, true, __FILE__, fileDef ? fileDef->fileName().data(): NULL);
-
-  yyextra->code = &codeOutIntf;
-  yyextra->inputString   = input;
-  yyextra->inputPosition = 0;
-  yyextra->currentFontClass = 0;
-  yyextra->needsTermination = false;
-  yyextra->searchCtx=searchCtx;
-
-  if (startLine!=-1)
-    yyextra->yyLineNr    = startLine;
-  else
-    yyextra->yyLineNr    = 1;
-
-  if (endLine!=-1)
-    yyextra->inputLines  = endLine+1;
-  else
-    yyextra->inputLines  = yyextra->yyLineNr + countLines(yyscanner) - 1;
-
-  yyextra->exampleBlock  = isExampleBlock;
-  yyextra->exampleName   = exampleName;
-  yyextra->sourceFileDef = fileDef;
-
-  bool cleanupSourceDef = false;
-
-  if (isExampleBlock && fileDef==0)
-  {
-    // create a dummy filedef for the example
-    yyextra->sourceFileDef = createFileDef("",(exampleName?exampleName:"generated"));
-    cleanupSourceDef = true;
-  }
-
-  if (yyextra->sourceFileDef)
-  {
-    setCurrentDoc(yyscanner,"l00001");
-  }
-
-  yyextra->includeCodeFragment = inlineFragment;
-  // Starts line 1 on the output
-  startCodeLine(yyscanner);
-
-  sqlcodeYYrestart( 0, yyscanner );
-
-  sqlcodeYYlex(yyscanner);
-
-  if (yyextra->needsTermination)
-  {
-    endCodeLine(yyscanner);
-  }
-  if (cleanupSourceDef)
-  {
-    // delete the temporary file definition used for this example
-    delete yyextra->sourceFileDef;
-    yyextra->sourceFileDef=0;
-  }
-
-  printlex(yy_flex_debug, false, __FILE__, fileDef ? fileDef->fileName().data(): NULL);
+void SQLCodeParser::resetCodeParserState()
+{
+  resetSqlCodeParserState();
 }
 
 //---------------------------------------------------------------------------------

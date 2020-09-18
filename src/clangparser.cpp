@@ -1,7 +1,6 @@
 #include "clangparser.h"
 #include "settings.h"
 #include <stdio.h>
-#include <mutex>
 
 #if USE_LIBCLANG
 #include <clang-c/Index.h>
@@ -21,15 +20,22 @@
 #include "membername.h"
 #include "filename.h"
 #include "tooltip.h"
+#if MULTITHREADED_INPUT
+#include <mutex>
+#endif
 #endif
 
 //--------------------------------------------------------------------------
 
+#if MULTITHREADED_INPUT
 std::mutex g_clangMutex;
+#endif
 
 ClangParser *ClangParser::instance()
 {
+#if MULTITHREADED_INPUT
   std::lock_guard<std::mutex> lock(g_clangMutex);
+#endif
   if (!s_instance) s_instance = new ClangParser;
   return s_instance;
 }
@@ -121,7 +127,7 @@ class ClangTUParser::Private
       : parser(p), fileDef(fd) {}
     const ClangParser &parser;
     const FileDef *fileDef;
-    CXIndex index = 0;
+    CXIndex index;
     uint curToken = 0;
     DetectedLang detectedLang = DetectedLang::Cpp;
     uint numFiles = 0;
@@ -145,7 +151,6 @@ class ClangTUParser::Private
 ClangTUParser::ClangTUParser(const ClangParser &parser,const FileDef *fd)
   : p(std::make_unique<Private>(parser,fd))
 {
-  //printf("ClangTUParser::ClangTUParser() this=%p\n",this);
 }
 
 StringVector ClangTUParser::filesInSameTU() const
@@ -155,7 +160,6 @@ StringVector ClangTUParser::filesInSameTU() const
 
 void ClangTUParser::parse()
 {
-  //printf("ClangTUParser::parse() this=%p\n",this);
   QCString fileName = p->fileDef->absFilePath();
   p->fileDef->getAllIncludeFilesRecursively(p->filesInSameTU);
   //printf("ClangTUParser::ClangTUParser(fileName=%s,#filesInSameTU=%d)\n",
@@ -166,12 +170,8 @@ void ClangTUParser::parse()
   const StringVector &clangOptions = Config_getList(CLANG_OPTIONS);
   if (!clangAssistedParsing) return;
   //printf("ClangParser::start(%s)\n",fileName);
-  assert(p->index==0);
-  assert(p->tokens==0);
-  assert(p->numTokens==0);
   p->index    = clang_createIndex(0, 0);
   p->curToken = 0;
-  p->cursors.clear();
   int argc=0;
   size_t clang_option_len = 0;
   std::vector<clang::tooling::CompileCommand> command;
@@ -295,7 +295,7 @@ void ClangTUParser::parse()
   // free arguments
   for (i=0;i<argc;++i)
   {
-    delete[](argv[i]);
+    free(argv[i]);
   }
   free(argv);
 
@@ -315,13 +315,16 @@ void ClangTUParser::parse()
   }
   else
   {
+    p->tokens    = 0;
+    p->numTokens = 0;
+    p->cursors.clear();
     err("clang: Failed to parse translation unit %s\n",qPrint(fileName));
   }
 }
 
 ClangTUParser::~ClangTUParser()
 {
-  //printf("ClangTUParser::~ClangTUParser() this=%p\n",this);
+  //printf("ClangTUParser::~ClangTUParser() tu=%p\n",p->tu);
   static bool clangAssistedParsing = Config_getBool(CLANG_ASSISTED_PARSING);
   if (!clangAssistedParsing) return;
   if (p->tu)
@@ -336,7 +339,7 @@ ClangTUParser::~ClangTUParser()
   }
   for (uint i=0;i<p->numFiles;i++)
   {
-    delete[] p->ufs[i].Filename;
+    free((void *)p->ufs[i].Filename);
   }
   p->ufs.clear();
   p->sources.clear();
@@ -346,7 +349,7 @@ ClangTUParser::~ClangTUParser()
 
 void ClangTUParser::switchToFile(FileDef *fd)
 {
-  //printf("ClangTUParser::switchToFile(%s) this=%p\n",qPrint(fd->absFilePath()),this);
+  //printf("ClangTUParser::switchToFile(%s)\n",qPrint(fd->absFilePath()));
   if (p->tu)
   {
     p->cursors.clear();

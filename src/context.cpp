@@ -443,147 +443,147 @@ class TranslateContext::Private
 {
   public:
 
-    TemplateVariant handleGeneratedAt(const std::vector<TemplateVariant> &args) const
+    TemplateVariant handleGeneratedAt(const QValueList<TemplateVariant> &args) const
     {
-      if (args.size()==2)
+      if (args.count()==2)
       {
         return theTranslator->trGeneratedAt(args[0].toString(),args[1].toString());
       }
       else
       {
-        err("tr.generateAt should take two arguments, got %zu!\n",args.size());
+        err("tr.generateAt should take two arguments, got %d!\n",args.count());
       }
       return TemplateVariant();
     }
-    TemplateVariant handleInheritanceDiagramFor(const std::vector<TemplateVariant> &args) const
+    TemplateVariant handleInheritanceDiagramFor(const QValueList<TemplateVariant> &args) const
     {
-      if (args.size()==1)
+      if (args.count()==1)
       {
         return theTranslator->trClassDiagram(args[0].toString());
       }
       else
       {
-        err("tr.inheritanceDiagramFor should take one argument, got %zu!\n",args.size());
+        err("tr.inheritanceDiagramFor should take one argument, got %d!\n",args.count());
       }
       return TemplateVariant();
     }
-    TemplateVariant handleCollaborationDiagramFor(const std::vector<TemplateVariant> &args) const
+    TemplateVariant handleCollaborationDiagramFor(const QValueList<TemplateVariant> &args) const
     {
-      if (args.size()==1)
+      if (args.count()==1)
       {
         return theTranslator->trCollaborationDiagram(args[0].toString());
       }
       else
       {
-        err("tr.collaborationDiagramFor should take one argument, got %zu!\n",args.size());
+        err("tr.collaborationDiagramFor should take one argument, got %d!\n",args.count());
       }
       return TemplateVariant();
     }
-    TemplateVariant handleDirDependencyGraphFor(const std::vector<TemplateVariant> &args) const
+    TemplateVariant handleDirDependencyGraphFor(const QValueList<TemplateVariant> &args) const
     {
-      if (args.size()==1)
+      if (args.count()==1)
       {
         return theTranslator->trDirDepGraph(args[0].toString());
       }
       else
       {
-        err("tr.dirDependencyGraphFor should take one argument, got %zu!\n",args.size());
+        err("tr.dirDependencyGraphFor should take one argument, got %d!\n",args.count());
       }
       return TemplateVariant();
     }
-    TemplateVariant handleInheritsList(const std::vector<TemplateVariant> &args) const
+    TemplateVariant handleInheritsList(const QValueList<TemplateVariant> &args) const
     {
-      if (args.size()==1)
+      if (args.count()==1)
       {
         return theTranslator->trInheritsList(args[0].toInt());
       }
       else
       {
-        err("tr.inheritsList should take one integer argument, got %zu!\n",args.size());
+        err("tr.inheritsList should take one integer argument, got %d!\n",args.count());
       }
       return TemplateVariant();
     }
-    TemplateVariant handleInheritedByList(const std::vector<TemplateVariant> &args) const
+    TemplateVariant handleInheritedByList(const QValueList<TemplateVariant> &args) const
     {
-      if (args.size()==1)
+      if (args.count()==1)
       {
         return theTranslator->trInheritedByList(args[0].toInt());
       }
       else
       {
-        err("tr.inheritedByList should take one integer argument, got %zu!\n",args.size());
+        err("tr.inheritedByList should take one integer argument, got %d!\n",args.count());
       }
       return TemplateVariant();
     }
-    TemplateVariant handleWriteList(const std::vector<TemplateVariant> &args) const
+    TemplateVariant handleWriteList(const QValueList<TemplateVariant> &args) const
     {
-      if (args.size()==1)
+      if (args.count()==1)
       {
         return theTranslator->trWriteList(args[0].toInt());
       }
       else
       {
-        err("tr.*List should take one integer argument, got %zu!\n",args.size());
+        err("tr.*List should take one integer argument, got %d!\n",args.count());
       }
       return TemplateVariant();
     }
-    TemplateVariant handleImplementedBy(const std::vector<TemplateVariant> &args) const
+    TemplateVariant handleImplementedBy(const QValueList<TemplateVariant> &args) const
     {
-      if (args.size()==1)
+      if (args.count()==1)
       {
         return theTranslator->trImplementedInList(args[0].toInt());
       }
       else
       {
-        err("tr.implementedBy should take one integer argument, got %zu!\n",args.size());
+        err("tr.implementedBy should take one integer argument, got %d!\n",args.count());
       }
       return TemplateVariant();
     }
-    TemplateVariant handleReimplementedBy(const std::vector<TemplateVariant> &args) const
+    TemplateVariant handleReimplementedBy(const QValueList<TemplateVariant> &args) const
     {
-      if (args.size()==1)
+      if (args.count()==1)
       {
         return theTranslator->trReimplementedInList(args[0].toInt());
       }
       else
       {
-        err("tr.reimplementedBy should take one integer argument, got %zu!\n",args.size());
+        err("tr.reimplementedBy should take one integer argument, got %d!\n",args.count());
       }
       return TemplateVariant();
     }
-    TemplateVariant handleSourceRefs(const std::vector<TemplateVariant> &args) const
+    TemplateVariant handleSourceRefs(const QValueList<TemplateVariant> &args) const
     {
-      if (args.size()==1)
+      if (args.count()==1)
       {
         return theTranslator->trReferences()+" "+theTranslator->trWriteList(args[0].toInt())+".";
       }
       else
       {
-        err("tr.sourceRefs should take one integer argument, got %zu\n",args.size());
+        err("tr.sourceRefs should take one integer argument, got %d\n",args.count());
       }
       return TemplateVariant();
     }
-    TemplateVariant handleSourceRefBys(const std::vector<TemplateVariant> &args) const
+    TemplateVariant handleSourceRefBys(const QValueList<TemplateVariant> &args) const
     {
-      if (args.size()==1)
+      if (args.count()==1)
       {
         return theTranslator->trReferencedBy()+" "+theTranslator->trWriteList(args[0].toInt())+".";
       }
       else
       {
-        err("tr.sourceRefBys should take one integer argument, got %zu\n",args.size());
+        err("tr.sourceRefBys should take one integer argument, got %d\n",args.count());
       }
       return TemplateVariant();
     }
-    TemplateVariant handleIncludeDependencyGraph(const std::vector<TemplateVariant> &args) const
+    TemplateVariant handleIncludeDependencyGraph(const QValueList<TemplateVariant> &args) const
     {
-      if (args.size()==1)
+      if (args.count()==1)
       {
         return theTranslator->trInclDepGraph(args[0].toString());
       }
       else
       {
-        err("tr.includeDependencyGraph should take one string argument, got %zu\n",args.size());
+        err("tr.includeDependencyGraph should take one string argument, got %d\n",args.count());
       }
       return TemplateVariant();
     }
@@ -1071,7 +1071,7 @@ class TranslateContext::Private
         s_inst.addProperty("namespaceList",     &Private::namespaceList);
         //%% string namespaceMembers
         s_inst.addProperty("namespaceMembers",  &Private::namespaceMembers);
-        //%% string fileList
+        //%% srting fileList
         s_inst.addProperty("fileList",          &Private::fileList);
         //%% string fileMembers
         s_inst.addProperty("fileMembers",       &Private::fileMembers);
@@ -5126,15 +5126,15 @@ class MemberContext::Private : public DefinitionContext<MemberContext::Private>
     {
       return m_memberDef->typeString();
     }
-    TemplateVariant handleDetailsVisibleFor(const std::vector<TemplateVariant> &args) const
+    TemplateVariant handleDetailsVisibleFor(const QValueList<TemplateVariant> &args) const
     {
-      if (args.size()==1)
+      if (args.count()==1)
       {
         return m_memberDef->isDetailedSectionVisible(args[0].toString()=="module",args[0].toString()=="file");
       }
       else
       {
-        err(".detailsVisibleFor should take one string argument, got %zu\n",args.size());
+        err(".detailsVisibleFor should take one string argument, got %d\n",args.count());
       }
       return TemplateVariant();
     }
@@ -5142,9 +5142,9 @@ class MemberContext::Private : public DefinitionContext<MemberContext::Private>
     {
       return TemplateVariant::Delegate::fromMethod<Private,&Private::handleDetailsVisibleFor>(this);
     }
-    TemplateVariant handleNameWithContextFor(const std::vector<TemplateVariant> &args) const
+    TemplateVariant handleNameWithContextFor(const QValueList<TemplateVariant> &args) const
     {
-      if (args.size()==1)
+      if (args.count()==1)
       {
         SrcLangExt lang = m_memberDef->getLanguage();
         QCString n = m_memberDef->name();
@@ -5166,7 +5166,7 @@ class MemberContext::Private : public DefinitionContext<MemberContext::Private>
       }
       else
       {
-        err(".nameWithContextFor should take one string argument, got %zu\n",args.size());
+        err(".nameWithContextFor should take one string argument, got %d\n",args.count());
       }
       return TemplateVariant();
     }
@@ -9238,7 +9238,7 @@ class InheritedMemberInfoListContext::Private : public GenericNodeListContext
             MemberDef *md;
             for (li.toFirst();(md=li.current());++li)
             {
-              if (lt==md->getSectionList(mg->container())->listType() &&
+              if (lt==md->getSectionList()->listType() &&
                   !md->isReimplementedBy(inheritedFrom) &&
                   md->isBriefSectionVisible())
               {
@@ -9418,7 +9418,7 @@ class ArgumentContext::Private
       return result;
     }
   private:
-    Argument m_argument;
+    const Argument &m_argument;
     const Definition *m_def;
     QCString m_relPath;
     struct Cachable

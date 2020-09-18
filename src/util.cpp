@@ -377,7 +377,7 @@ QCString resolveTypeDef(const Definition *context,const QCString &qualifiedName,
       return result;
     }
   }
-  const MemberDef *md=0;
+  MemberDef *md=0;
   while (mContext && md==0)
   {
     // step 1: get the right scope
@@ -422,18 +422,17 @@ QCString resolveTypeDef(const Definition *context,const QCString &qualifiedName,
       if (mn)
       {
         int minDist=-1;
-        for (const auto &tmd_p : *mn)
+        for (const auto &tmd : *mn)
         {
-          const MemberDef *tmd = tmd_p.get();
           //printf("Found member %s resScope=%s outerScope=%s mContext=%p\n",
           //    tmd->name().data(), resScope->name().data(),
           //    tmd->getOuterScope()->name().data(), mContext);
           if (tmd->isTypedef() /*&& tmd->getOuterScope()==resScope*/)
           {
-            int dist=isAccessibleFrom(resScope,0,tmd);
+            int dist=isAccessibleFrom(resScope,0,tmd.get());
             if (dist!=-1 && (md==0 || dist<minDist))
             {
-              md = tmd;
+              md = tmd.get();
               minDist = dist;
             }
           }
@@ -1983,10 +1982,8 @@ void linkifyText(const TextGeneratorIntf &out, const Definition *scope,
   //printf("linkify='%s'\n",text);
   static QRegExp regExp("[a-z_A-Z\\x80-\\xFF][~!a-z_A-Z0-9$\\\\.:\\x80-\\xFF]*");
   static QRegExp regExpSplit("(?!:),");
-  if (text==0) return;
   QCString txtStr=text;
   int strLen = txtStr.length();
-  if (strLen==0) return;
   //printf("linkifyText scope=%s fileScope=%s strtxt=%s strlen=%d external=%d\n",
   //    scope?scope->name().data():"<none>",
   //    fileScope?fileScope->name().data():"<none>",
@@ -1996,6 +1993,7 @@ void linkifyText(const TextGeneratorIntf &out, const Definition *scope,
   int newIndex;
   int skipIndex=0;
   int floatingIndex=0;
+  if (strLen==0) return;
   // read a word from the text string
   while ((newIndex=regExp.match(txtStr,index,&matchLen))!=-1)
   {
@@ -2263,7 +2261,7 @@ QCString argListToString(const ArgumentList &al,bool useCanonicalType,bool showD
   if (al.volatileSpecifier()) result+=" volatile";
   if (al.refQualifier()==RefQualifierLValue) result+=" &";
   else if (al.refQualifier()==RefQualifierRValue) result+=" &&";
-  if (!al.trailingReturnType().isEmpty()) result+=al.trailingReturnType();
+  if (!al.trailingReturnType().isEmpty()) result+=" -> "+al.trailingReturnType();
   if (al.pureSpecifier()) result+=" =0";
   return removeRedundantWhiteSpace(result);
 }
@@ -2504,13 +2502,13 @@ QCString fileToString(const char *name,bool filter,bool isSourceCode)
     if (fileOpened)
     {
       const int bSize=4096;
-      QCString contents(bSize+1);
+      QCString contents(bSize);
       int totalSize=0;
       int size;
       while ((size=f.readBlock(contents.rawData()+totalSize,bSize))==bSize)
       {
         totalSize+=bSize;
-        contents.resize(totalSize+bSize+1);
+        contents.resize(totalSize+bSize);
       }
       totalSize = filterCRLF(contents.rawData(),totalSize+size)+2;
       contents.resize(totalSize);
@@ -3387,7 +3385,7 @@ void mergeArguments(ArgumentList &srcAl,ArgumentList &dstAl,bool forceNameOverwr
   }
 }
 
-static void findMembersWithSpecificName(const MemberName *mn,
+static void findMembersWithSpecificName(MemberName *mn,
                                         const char *args,
                                         bool checkStatics,
                                         const FileDef *currentFile,
@@ -3397,9 +3395,8 @@ static void findMembersWithSpecificName(const MemberName *mn,
 {
   //printf("  Function with global scope name '%s' args='%s'\n",
   //       mn->memberName(),args);
-  for (const auto &md_p : *mn)
+  for (const auto &md : *mn)
   {
-    const MemberDef *md = md_p.get();
     const FileDef  *fd=md->getFileDef();
     const GroupDef *gd=md->getGroupDef();
     //printf("  md->name()='%s' md->args='%s' fd=%p gd=%p current=%p ref=%s\n",
@@ -3424,7 +3421,7 @@ static void findMembersWithSpecificName(const MemberName *mn,
       if (match && (forceTagFile==0 || md->getReference()==forceTagFile))
       {
         //printf("Found match!\n");
-        members.append(md);
+        members.append(md.get());
       }
     }
   }
@@ -3546,9 +3543,8 @@ bool getDefs(const QCString &scName,
         {
           argList = stringToArgumentList(fcd->getLanguage(),args);
         }
-        for (const auto &mmd_p : *mn)
+        for (const auto &mmd : *mn)
         {
-          MemberDef *mmd = mmd_p.get();
           if (!mmd->isStrongEnumValue())
           {
             const ArgumentList &mmdAl = mmd->argumentList();
@@ -3567,7 +3563,7 @@ bool getDefs(const QCString &scName,
                 {
                   mdist=m;
                   cd=mcd;
-                  md=mmd;
+                  md=mmd.get();
                 }
               }
             }
@@ -3577,9 +3573,8 @@ bool getDefs(const QCString &scName,
           // no exact match found, but if args="()" an arbitrary member will do
         {
           //printf("  >Searching for arbitrary member\n");
-          for (const auto &mmd_p : *mn)
+          for (const auto &mmd : *mn)
           {
-            MemberDef *mmd = mmd_p.get();
             //if (mmd->isLinkable())
             //{
             ClassDef *mcd=mmd->getClassDef();
@@ -3592,7 +3587,7 @@ bool getDefs(const QCString &scName,
                 //printf("Class distance %d\n",m);
                 mdist=m;
                 cd=mcd;
-                md=mmd;
+                md=mmd.get();
               }
             }
             //}
@@ -3658,7 +3653,7 @@ bool getDefs(const QCString &scName,
   if (mn && scopeName.isEmpty() && mScope.isEmpty()) // Maybe a related function?
   {
     //printf("Global symbol\n");
-    const MemberDef *fuzzy_mmd = 0;
+    MemberDef *fuzzy_mmd = 0;
     std::unique_ptr<ArgumentList> argList;
     bool hasEmptyArgs = args && qstrcmp(args, "()") == 0;
 
@@ -3667,9 +3662,8 @@ bool getDefs(const QCString &scName,
       argList = stringToArgumentList(SrcLangExt_Cpp, args);
     }
 
-    for (const auto &mmd_p : *mn)
+    for (const auto &mmd : *mn)
     {
-      const MemberDef *mmd = mmd_p.get();
       if (!mmd->isLinkable() || (!mmd->isRelated() && !mmd->isForeign()) ||
            !mmd->getClassDef())
       {
@@ -3678,24 +3672,24 @@ bool getDefs(const QCString &scName,
 
       if (!args)
       {
-        fuzzy_mmd = mmd;
+        fuzzy_mmd = mmd.get();
         break;
       }
 
-      const ArgumentList &mmdAl = mmd->argumentList();
+      ArgumentList &mmdAl = mmd->argumentList();
       if (matchArguments2(mmd->getOuterScope(),mmd->getFileDef(),&mmdAl,
             Doxygen::globalScope,mmd->getFileDef(),argList.get(),
             checkCV
             )
          )
       {
-        fuzzy_mmd = mmd;
+        fuzzy_mmd = mmd.get();
         break;
       }
 
       if (!fuzzy_mmd && hasEmptyArgs)
       {
-        fuzzy_mmd = mmd;
+        fuzzy_mmd = mmd.get();
       }
     }
 
@@ -3736,9 +3730,8 @@ bool getDefs(const QCString &scName,
         //printf("Symbol inside existing namespace '%s' count=%d\n",
         //    namespaceName.data(),mn->count());
         bool found=FALSE;
-        for (const auto &mmd_p : *mn)
+        for (const auto &mmd : *mn)
         {
-          const MemberDef *mmd = mmd_p.get();
           //printf("mmd->getNamespaceDef()=%p fnd=%p\n",
           //    mmd->getNamespaceDef(),fnd);
           const MemberDef *emd = mmd->getEnumScope();
@@ -3750,7 +3743,7 @@ bool getDefs(const QCString &scName,
             {
               //printf("found it!\n");
               nd=fnd;
-              md=mmd;
+              md=mmd.get();
               found=TRUE;
               break;
             }
@@ -3776,7 +3769,7 @@ bool getDefs(const QCString &scName,
             if (match)
             {
               nd=fnd;
-              md=mmd;
+              md=mmd.get();
               found=TRUE;
               break;
             }
@@ -3786,13 +3779,12 @@ bool getDefs(const QCString &scName,
           // no exact match found, but if args="()" an arbitrary
           // member will do
         {
-          for (const auto &mmd_p : *mn)
+          for (const auto &mmd : *mn)
           {
-            const MemberDef *mmd = mmd_p.get();
             if (mmd->getNamespaceDef()==fnd /*&& mmd->isLinkable() */ )
             {
               nd=fnd;
-              md=mmd;
+              md=mmd.get();
               found=TRUE;
               break;
             }
@@ -3817,9 +3809,8 @@ bool getDefs(const QCString &scName,
       else
       {
         //printf("not a namespace\n");
-        for (const auto &mmd_p : *mn)
+        for (const auto &mmd : *mn)
         {
-          const MemberDef *mmd = mmd_p.get();
           const MemberDef *tmd = mmd->getEnumScope();
           //printf("try member %s tmd=%s\n",mmd->name().data(),tmd?tmd->name().data():"<none>");
           int ni=namespaceName.findRev("::");
@@ -3832,7 +3823,7 @@ bool getDefs(const QCString &scName,
               namespaceName.length()>0  // enum is part of namespace so this should not be empty
              )
           {
-            md=mmd;
+            md=mmd.get();
             fd=mmd->getFileDef();
             gd=mmd->getGroupDef();
             if (gd && gd->isLinkable()) fd=0; else gd=0;
@@ -3871,8 +3862,7 @@ bool getDefs(const QCString &scName,
         //for (mni.toLast();(md=mni.current());--mni)
         for (auto it = mn->rbegin(); it!=mn->rend(); ++it)
         {
-          const auto &mmd_p = *it;
-          const MemberDef *mmd = mmd_p.get();
+          const auto &mmd = *it;
           //printf("Found member '%s'\n",mmd->name().data());
           //printf("member is linkable mmd->name()='%s'\n",mmd->name().data());
           fd=mmd->getFileDef();
@@ -3883,7 +3873,7 @@ bool getDefs(const QCString &scName,
               (tmd && tmd->isStrong())
              )
           {
-            members.append(mmd);
+            members.append(mmd.get());
           }
         }
       }
@@ -4489,14 +4479,18 @@ struct FindFileCacheElem
 
 static QCache<FindFileCacheElem> g_findFileDefCache(5000);
 
+#if MULTITHREADED_INPUT
 static std::mutex g_findFileDefMutex;
+#endif
 
 FileDef *findFileDef(const FileNameLinkedMap *fnMap,const char *n,bool &ambig)
 {
   ambig=FALSE;
   if (n==0) return 0;
 
+#if MULTITHREADED_INPUT
   std::unique_lock<std::mutex> lock(g_findFileDefMutex);
+#endif
 
   const int maxAddrSize = 20;
   char addr[maxAddrSize];
@@ -4553,14 +4547,13 @@ FileDef *findFileDef(const FileNameLinkedMap *fnMap,const char *n,bool &ambig)
       int count=0;
       FileDef *lastMatch=0;
       QCString pathStripped = stripFromIncludePath(path);
-      for (const auto &fd_p : *fn)
+      for (const auto &fd : *fn)
       {
-        FileDef *fd = fd_p.get();
         QCString fdStripPath = stripFromIncludePath(fd->getPath());
         if (path.isEmpty() || fdStripPath.right(pathStripped.length())==pathStripped)
         {
           count++;
-          lastMatch=fd;
+          lastMatch=fd.get();
         }
       }
       //printf(">1 ===> add to cache %p\n",fd);
@@ -5530,7 +5523,7 @@ void addMembersToMemberGroup(MemberList *ml,
     const Definition *context)
 {
   ASSERT(context!=0);
-  //printf("addMemberToMemberGroup() context=%s\n",context->name().data());
+  //printf("addMemberToMemberGroup()\n");
   if (ml==0) return;
   MemberListIterator mli(*ml);
   MemberDef *md;
@@ -5563,7 +5556,6 @@ void addMembersToMemberGroup(MemberList *ml,
               if (mg==0)
               {
                 mg = new MemberGroup(
-                    context,
                     groupId,
                     info->header,
                     info->doc,
@@ -5596,7 +5588,6 @@ void addMembersToMemberGroup(MemberList *ml,
         if (mg==0)
         {
           mg = new MemberGroup(
-              context,
               groupId,
               info->header,
               info->doc,
@@ -5606,7 +5597,7 @@ void addMembersToMemberGroup(MemberList *ml,
           (*ppMemberGroupSDict)->append(groupId,mg);
         }
         md = ml->take(index); // remove from member list
-        mg->insertMember(md->resolveAlias()); // insert in member group
+        mg->insertMember(md); // insert in member group
         mg->setRefItems(info->m_sli);
         md->setMemberGroup(mg);
         continue;
@@ -6592,7 +6583,7 @@ QCString stripLeadingAndTrailingEmptyLines(const QCString &s,int &docLine)
   while ((c=*p))
   {
     if (c==' ' || c=='\t' || c=='\r') i++,p++;
-    else if (c=='\\' && qstrncmp(p,"\\ilinebr",8)==0) i+=8,li=i,p+=8;
+    else if (c=='\\' && qstrncmp(p,"\\ilinebr",8)==0) i+=8,li=i,docLine++,p+=8;
     else if (c=='\n') i++,li=i,docLine++,p++;
     else break;
   }
@@ -7927,55 +7918,6 @@ QCString stripIndentation(const QCString &s)
 
   result+='\0';
   return result.data();
-}
-
-// strip up to \a indentationLevel spaces from each line in \a doc (excluding the first line)
-static void stripIndentation(QCString &doc,const int indentationLevel)
-{
-  if (indentationLevel <= 0 || doc.isEmpty()) return; // nothing to strip
-
-  // by stripping content the string will only become shorter so we write the results
-  // back into the input string and then resize it at the end.
-  char c;
-  const char *src = doc.data();
-  char *dst = doc.rawData();
-  bool insideIndent = false; // skip the initial line from stripping
-  int cnt = 0;
-  while ((c=*src++)!=0)
-  {
-    // invariant: dst<=src
-    switch(c)
-    {
-      case '\n':
-        *dst++ = c;
-        insideIndent = true;
-        cnt = indentationLevel;
-        break;
-      case ' ':
-        if (insideIndent)
-        {
-          if (cnt>0) // count down the spacing until the end of the indent
-          {
-            cnt--;
-          }
-          else // reached the end of the indent, start of the part of the line to keep
-          {
-            insideIndent = false;
-            *dst++ = c;
-          }
-        }
-        else // part after indent, copy to the output
-        {
-          *dst++ = c;
-        }
-        break;
-      default:
-        insideIndent = false;
-        *dst++ = c;
-        break;
-    }
-  }
-  doc.resize(dst-doc.data()+1);
 }
 
 

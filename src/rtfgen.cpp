@@ -63,23 +63,16 @@ static QCString dateToRTFDateString()
   return result;
 }
 
-RTFGenerator::RTFGenerator() : OutputGenerator(Config_getString(RTF_OUTPUT))
+RTFGenerator::RTFGenerator() : OutputGenerator()
 {
-}
-
-RTFGenerator::RTFGenerator(const RTFGenerator &og) : OutputGenerator(og)
-{
-}
-
-RTFGenerator &RTFGenerator::operator=(const RTFGenerator &og)
-{
-  OutputGenerator::operator=(og);
-  return *this;
-}
-
-std::unique_ptr<OutputGenerator> RTFGenerator::clone() const
-{
-  return std::make_unique<RTFGenerator>(*this);
+  m_dir=Config_getString(RTF_OUTPUT);
+  m_col=0;
+  //insideTabbing=FALSE;
+  m_listLevel = 0;
+  m_bstartedBody = FALSE;
+  m_omitParagraph = FALSE;
+  m_numCols = 0;
+  m_prettyCode=Config_getBool(RTF_SOURCE_CODE);
 }
 
 RTFGenerator::~RTFGenerator()
@@ -584,8 +577,8 @@ void RTFGenerator::endIndexSection(IndexSections is)
 {
   bool fortranOpt = Config_getBool(OPTIMIZE_FOR_FORTRAN);
   bool vhdlOpt    = Config_getBool(OPTIMIZE_OUTPUT_VHDL);
-  bool sourceBrowser = Config_getBool(SOURCE_BROWSER);
-  QCString projectName = Config_getString(PROJECT_NAME);
+  static bool sourceBrowser = Config_getBool(SOURCE_BROWSER);
+  static QCString projectName = Config_getString(PROJECT_NAME);
 
   switch (is)
   {
@@ -1879,7 +1872,7 @@ void RTFGenerator::endClassDiagram(const ClassDiagram &d,
   newParagraph();
 
   // create a png file
-  d.writeImage(t,dir(),m_relPath,fileName,FALSE);
+  d.writeImage(t,m_dir,m_relPath,fileName,FALSE);
 
   // display the file
   t << "{" << endl;
@@ -2507,7 +2500,7 @@ void RTFGenerator::endDotGraph(DotClassGraph &g)
   newParagraph();
 
   QCString fn =
-    g.writeGraph(t,GOF_BITMAP,EOF_Rtf,dir(),fileName(),m_relPath,TRUE,FALSE);
+    g.writeGraph(t,GOF_BITMAP,EOF_Rtf,Config_getString(RTF_OUTPUT),m_fileName,m_relPath,TRUE,FALSE);
 
   // display the file
   t << "{" << endl;
@@ -2530,7 +2523,8 @@ void RTFGenerator::endInclDepGraph(DotInclDepGraph &g)
 {
   newParagraph();
 
-  QCString fn = g.writeGraph(t,GOF_BITMAP,EOF_Rtf,dir(),fileName(),m_relPath,FALSE);
+  QCString fn = g.writeGraph(t,GOF_BITMAP,EOF_Rtf,Config_getString(RTF_OUTPUT),
+                         m_fileName,m_relPath,FALSE);
 
   // display the file
   t << "{" << endl;
@@ -2560,7 +2554,8 @@ void RTFGenerator::endCallGraph(DotCallGraph &g)
 {
   newParagraph();
 
-  QCString fn = g.writeGraph(t,GOF_BITMAP,EOF_Rtf,dir(),fileName(),m_relPath,FALSE);
+  QCString fn = g.writeGraph(t,GOF_BITMAP,EOF_Rtf,Config_getString(RTF_OUTPUT),
+                        m_fileName,m_relPath,FALSE);
 
   // display the file
   t << "{" << endl;
@@ -2582,7 +2577,8 @@ void RTFGenerator::endDirDepGraph(DotDirDeps &g)
 {
   newParagraph();
 
-  QCString fn = g.writeGraph(t,GOF_BITMAP,EOF_Rtf,dir(),fileName(),m_relPath,FALSE);
+  QCString fn = g.writeGraph(t,GOF_BITMAP,EOF_Rtf,Config_getString(RTF_OUTPUT),
+                        m_fileName,m_relPath,FALSE);
 
   // display the file
   t << "{" << endl;
@@ -3041,7 +3037,7 @@ void RTFGenerator::endInlineMemberDoc()
 
 void RTFGenerator::writeLineNumber(const char *ref,const char *fileName,const char *anchor,int l)
 {
-  bool rtfHyperlinks = Config_getBool(RTF_HYPERLINKS);
+  static bool rtfHyperlinks = Config_getBool(RTF_HYPERLINKS);
 
   DoxyCodeLineOpen = TRUE;
   QCString lineNumber;

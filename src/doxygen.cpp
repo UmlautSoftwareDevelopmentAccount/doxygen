@@ -164,7 +164,7 @@ DefinesPerFileList Doxygen::macroDefinitions;
 bool             Doxygen::clangAssistedParsing = FALSE;
 
 // locally accessible globals
-static std::map< std::string, const Entry* > g_classEntries;
+static std::unordered_map< std::string, const Entry* > g_classEntries;
 static StringVector     g_inputFiles;
 static QDict<void>      g_compoundKeywordDict(7);  // keywords recognised as compounds
 static OutputList      *g_outputList = 0;          // list of output generating objects
@@ -3680,18 +3680,17 @@ static void transferFunctionReferences()
   {
     MemberDef *mdef=0,*mdec=0;
     /* find a matching function declaration and definition for this function */
-    for (const auto &md_p : *mn)
+    for (const auto &md : *mn)
     {
-      MemberDef *md = md_p.get();
       if (md->isPrototype())
-        mdec=md;
+        mdec=md.get();
       else if (md->isVariable() && md->isExternal())
-        mdec=md;
+        mdec=md.get();
 
       if (md->isFunction() && !md->isStatic() && !md->isPrototype())
-        mdef=md;
+        mdef=md.get();
       else if (md->isVariable() && !md->isExternal() && !md->isStatic())
-        mdef=md;
+        mdef=md.get();
 
       if (mdef && mdec) break;
     }
@@ -6946,14 +6945,7 @@ static void addEnumValuesToEnums(const Entry *root)
       MemberName *mn = mnsd->find(name); // for all members with this name
       if (mn)
       {
-        struct EnumValueInfo
-        {
-          EnumValueInfo(const QCString &n,std::unique_ptr<MemberDef> &md) :
-            name(n), member(std::move(md)) {}
-          QCString name;
-          std::unique_ptr<MemberDef> member;
-        };
-        std::vector< EnumValueInfo > extraMembers;
+        std::vector< std::unique_ptr<MemberDef> > extraMembers;
         // for each enum in this list
         for (const auto &md : *mn)
         {
@@ -7013,7 +7005,8 @@ static void addEnumValuesToEnums(const Entry *root)
                   fmd->setAnchor();
                   md->insertEnumField(fmd.get());
                   fmd->setEnumScope(md.get(),TRUE);
-                  extraMembers.push_back(EnumValueInfo(e->name,fmd));
+                  mn=mnsd->add(e->name);
+                  extraMembers.push_back(std::move(fmd));
                 }
               }
               else
@@ -7077,10 +7070,9 @@ static void addEnumValuesToEnums(const Entry *root)
           }
         }
         // move the newly added members into mn
-        for (auto &e : extraMembers)
+        for (auto &md : extraMembers)
         {
-          MemberName *emn=mnsd->add(e.name);
-          emn->push_back(std::move(e.member));
+          mn->push_back(std::move(md));
         }
       }
     }
@@ -7593,6 +7585,7 @@ static void generateFileSources()
           {
             msg("Generating code for file %s...\n",fd->docName().data());
             fd->writeSource(*g_outputList,nullptr);
+
           }
           else if (!fd->isReference() && Doxygen::parseSourcesNeeded)
             // we needed to parse the sources even if we do not show them
@@ -7715,23 +7708,23 @@ static void buildDefineList()
       for (const auto &def : it->second)
       {
         std::unique_ptr<MemberDef> md { createMemberDef(
-            def.fileName,def.lineNr,def.columnNr,
-            "#define",def.name,def.args,0,
+            def->fileName,def->lineNr,def->columnNr,
+            "#define",def->name,def->args,0,
             Public,Normal,FALSE,Member,MemberType_Define,
             ArgumentList(),ArgumentList(),"") };
 
-        if (!def.args.isEmpty())
+        if (!def->args.isEmpty())
         {
-          md->moveArgumentList(stringToArgumentList(SrcLangExt_Cpp, def.args));
+          md->moveArgumentList(stringToArgumentList(SrcLangExt_Cpp, def->args));
         }
-        md->setInitializer(def.definition);
-        md->setFileDef(def.fileDef);
-        md->setDefinition("#define "+def.name);
+        md->setInitializer(def->definition);
+        md->setFileDef(def->fileDef);
+        md->setDefinition("#define "+def->name);
 
-        MemberName *mn=Doxygen::functionNameLinkedMap->add(def.name);
-        if (def.fileDef)
+        MemberName *mn=Doxygen::functionNameLinkedMap->add(def->name);
+        if (def->fileDef)
         {
-          def.fileDef->insertMember(md.get());
+          def->fileDef->insertMember(md.get());
         }
         mn->push_back(std::move(md));
       }
@@ -9127,8 +9120,10 @@ static std::shared_ptr<Entry> parseFile(OutlineParserInterface &parser,
   return fileRoot;
 }
 
+#if MULTITHREADED_INPUT
+
 //! parse the list of input files
-static void parseFilesMultiThreading(const std::shared_ptr<Entry> &root)
+static void parseFiles(const std::shared_ptr<Entry> &root)
 {
 #if USE_LIBCLANG
   if (Doxygen::clangAssistedParsing)
@@ -9144,15 +9139,10 @@ static void parseFilesMultiThreading(const std::shared_ptr<Entry> &root)
 
     std::mutex processedFilesLock;
     // process source files (and their include dependencies)
-    std::size_t numThreads = static_cast<std::size_t>(Config_getInt(NUM_PROC_THREADS));
-    if (numThreads==0)
-    {
-      numThreads = std::thread::hardware_concurrency();
-    }
-    msg("Processing input using %zu threads.\n",numThreads);
+    std::size_t numThreads = std::thread::hardware_concurrency();
+    msg("Processing input using %lu threads.\n",numThreads);
     ThreadPool threadPool(numThreads);
-    using FutureType = std::vector< std::shared_ptr<Entry> >;
-    std::vector< std::future< FutureType > > results;
+    std::vector< std::future< std::vector< std::shared_ptr<Entry> > > > results;
     for (const auto &s : g_inputFiles)
     {
       bool ambig;
@@ -9162,12 +9152,12 @@ static void parseFilesMultiThreading(const std::shared_ptr<Entry> &root)
       {
         // lambda representing the work to executed by a thread
         auto processFile = [s,&filesToProcess,&processedFilesLock,&processedFiles]() {
-          bool ambig_l;
+          bool ambig;
           std::vector< std::shared_ptr<Entry> > roots;
-          FileDef *fd_l = findFileDef(Doxygen::inputNameLinkedMap,s.c_str(),ambig_l);
-          auto clangParser = ClangParser::instance()->createTUParser(fd_l);
+          FileDef *fd = findFileDef(Doxygen::inputNameLinkedMap,s.c_str(),ambig);
+          auto clangParser = ClangParser::instance()->createTUParser(fd);
           auto parser = getParserForFile(s.c_str());
-          auto fileRoot { parseFile(*parser.get(),fd_l,s.c_str(),clangParser.get(),true) };
+          auto fileRoot { parseFile(*parser.get(),fd,s.c_str(),clangParser.get(),true) };
           roots.push_back(fileRoot);
 
           // Now process any include files in the same translation unit
@@ -9184,7 +9174,7 @@ static void parseFilesMultiThreading(const std::shared_ptr<Entry> &root)
               }
               if (incFile!=s && needsToBeProcessed)
               {
-                FileDef *ifd=findFileDef(Doxygen::inputNameLinkedMap,incFile.c_str(),ambig_l);
+                FileDef *ifd=findFileDef(Doxygen::inputNameLinkedMap,incFile.c_str(),ambig);
                 if (ifd && !ifd->isReference())
                 {
                   //printf("  Processing %s in same translation unit as %s\n",incFile,s->c_str());
@@ -9244,18 +9234,18 @@ static void parseFilesMultiThreading(const std::shared_ptr<Entry> &root)
 #endif
   {
     std::size_t numThreads = std::thread::hardware_concurrency();
-    msg("Processing input using %zu threads.\n",numThreads);
+    msg("Processing input using %lu threads.\n",numThreads);
     ThreadPool threadPool(numThreads);
-    using FutureType = std::shared_ptr<Entry>;
-    std::vector< std::future< FutureType > > results;
+    std::vector< std::future< std::shared_ptr<Entry> > > results;
     for (const auto &s : g_inputFiles)
     {
       // lambda representing the work to executed by a thread
       auto processFile = [s]() {
         bool ambig;
         FileDef *fd=findFileDef(Doxygen::inputNameLinkedMap,s.c_str(),ambig);
+        auto clangParser = ClangParser::instance()->createTUParser(fd);
         auto parser = getParserForFile(s.c_str());
-        auto fileRoot = parseFile(*parser.get(),fd,s.c_str(),nullptr,true);
+        auto fileRoot = parseFile(*parser.get(),fd,s.c_str(),clangParser.get(),true);
         return fileRoot;
       };
       // dispatch the work and collect the future results
@@ -9266,11 +9256,14 @@ static void parseFilesMultiThreading(const std::shared_ptr<Entry> &root)
     {
       root->moveToSubEntryAndKeep(f.get());
     }
+#warning "Multi-threaded input enabled. This is a highly experimental feature. Only use for doxygen development."
   }
 }
 
+#else // !MULTITHREADED_INPUT
+
 //! parse the list of input files
-static void parseFilesSingleThreading(const std::shared_ptr<Entry> &root)
+static void parseFiles(const std::shared_ptr<Entry> &root)
 {
 #if USE_LIBCLANG
   if (Doxygen::clangAssistedParsing)
@@ -9348,6 +9341,8 @@ static void parseFilesSingleThreading(const std::shared_ptr<Entry> &root)
   }
 }
 
+#endif
+
 // resolves a path that may include symlinks, if a recursive symlink is
 // found an empty string is returned.
 static QCString resolveSymlink(QCString path)
@@ -9416,7 +9411,9 @@ static QCString resolveSymlink(QCString path)
   return QDir::cleanDirPath(result).data();
 }
 
+#if MULTITHREADED_INPUT
 static std::mutex g_pathsVisitedMutex;
+#endif
 static StringUnorderedSet g_pathsVisited(1009);
 
 //----------------------------------------------------------------------------
@@ -9448,7 +9445,9 @@ static int readDir(QFileInfo *fi,
     dirName = resolveSymlink(dirName.data());
     if (dirName.isEmpty()) return 0;            // recursive symlink
 
+#if MULTITHREADED_INPUT
     std::lock_guard<std::mutex> lock(g_pathsVisitedMutex);
+#endif
     if (g_pathsVisited.find(dirName.str())!=g_pathsVisited.end()) return 0; // already visited path
     g_pathsVisited.insert(dirName.str());
   }
@@ -9473,7 +9472,7 @@ static int readDir(QFileInfo *fi,
         {
           if (errorIfNotExist)
           {
-            warn_uncond("source '%s' is not a readable file or directory... skipping.\n",cfi->absFilePath().data());
+            warn_uncond("source %s is not a readable file or directory... skipping.\n",cfi->absFilePath().data());
           }
         }
         else if (cfi->isFile() &&
@@ -9553,7 +9552,7 @@ int readFileOrDirectory(const char *s,
       {
         if (errorIfNotExist)
         {
-          warn_uncond("source '%s' is not a readable file or directory... skipping.\n",s);
+          warn_uncond("source %s is not a readable file or directory... skipping.\n",s);
         }
       }
       else if (!Config_getBool(EXCLUDE_SYMLINKS) || !fi.isSymLink())
@@ -11042,14 +11041,7 @@ void parseInput()
   addSTLSupport(root);
 
   g_s.begin("Parsing files\n");
-  if (Config_getInt(NUM_PROC_THREADS)==1)
-  {
-    parseFilesSingleThreading(root);
-  }
-  else
-  {
-    parseFilesMultiThreading(root);
-  }
+  parseFiles(root);
   g_s.end();
 
   /**************************************************************************
@@ -11389,10 +11381,10 @@ void generateOutput()
   bool generateDocbook = Config_getBool(GENERATE_DOCBOOK);
 
 
-  g_outputList = new OutputList;
+  g_outputList = new OutputList(TRUE);
   if (generateHtml)
   {
-    g_outputList->add<HtmlGenerator>();
+    g_outputList->add(new HtmlGenerator);
     HtmlGenerator::init();
 
     // add HTML indexers that are enabled
@@ -11411,22 +11403,22 @@ void generateOutput()
   }
   if (generateLatex)
   {
-    g_outputList->add<LatexGenerator>();
+    g_outputList->add(new LatexGenerator);
     LatexGenerator::init();
   }
   if (generateDocbook)
   {
-    g_outputList->add<DocbookGenerator>();
+    g_outputList->add(new DocbookGenerator);
     DocbookGenerator::init();
   }
   if (generateMan)
   {
-    g_outputList->add<ManGenerator>();
+    g_outputList->add(new ManGenerator);
     ManGenerator::init();
   }
   if (generateRtf)
   {
-    g_outputList->add<RTFGenerator>();
+    g_outputList->add(new RTFGenerator);
     RTFGenerator::init();
   }
   if (Config_getBool(USE_HTAGS))
@@ -11539,7 +11531,7 @@ void generateOutput()
   generateDirDocs(*g_outputList);
   g_s.end();
 
-  if (g_outputList->size()>0)
+  if (g_outputList->count()>0)
   {
     writeIndexHierarchy(*g_outputList);
   }

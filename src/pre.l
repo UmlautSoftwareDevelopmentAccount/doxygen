@@ -32,8 +32,10 @@
 #include <deque>
 #include <algorithm>
 #include <utility>
+#if MULTITHREADED_INPUT
 #include <mutex>
 #include <thread>
+#endif
 
 #include <stdio.h>
 #include <assert.h>
@@ -109,7 +111,7 @@ struct PreIncludeInfo
 };
 
 /** A dictionary of managed Define objects. */
-typedef std::map< std::string, Define > DefineMap;
+typedef std::map< std::string,std::unique_ptr<Define> > DefineMapOwning;
 
 /** @brief Class that manages the defines available while 
  *  preprocessing files. 
@@ -130,44 +132,39 @@ class DefineManager
         {
           m_includedFiles.insert(fileName);
         }
-        void store(const DefineMap &fromMap)
+        void store(const DefineMapOwning &fromMap)
         {
           for (auto &kv : fromMap)
           {
-            m_defines.emplace(kv.first,kv.second);
+            m_defines.emplace(kv.first,std::make_unique<Define>(*kv.second.get()));
           }
-          //printf("  m_defines.size()=%zu\n",m_defines.size());
-          m_stored=true;
         }
-        void retrieve(DefineMap &toMap)
+        void retrieve(DefineMapOwning &toMap)
         {
           StringSet includeStack;
           retrieveRec(toMap,includeStack);
         }
-        void retrieveRec(DefineMap &toMap,StringSet &includeStack)
+        void retrieveRec(DefineMapOwning &toMap,StringSet &includeStack)
         {
-          //printf("  retrieveRec #includedFiles=%zu\n",m_includedFiles.size());
           for (auto incFile : m_includedFiles)
           {
             DefinesPerFile *dpf = m_parent->find(incFile);
             if (dpf && includeStack.find(incFile)==includeStack.end())
             {
+              //printf("  processing include %s\n",incFile.data());
               includeStack.insert(incFile);
               dpf->retrieveRec(toMap,includeStack);
-              //printf("  retrieveRec: processing include %s: #toMap=%zu\n",incFile.data(),toMap.size());
             }
           }
           for (auto &kv : m_defines)
           {
-            toMap.emplace(kv.first,kv.second);
+            toMap.emplace(kv.first,std::make_unique<Define>(*kv.second.get()));
           }
         }
-        bool stored() const { return m_stored; }
       private:
         DefineManager *m_parent;
-        DefineMap m_defines;
+        DefineMapOwning m_defines;
         StringSet m_includedFiles;
-        bool m_stored = false;
     };
 
     friend class DefinesPerFile;
@@ -175,19 +172,16 @@ class DefineManager
 
     void addInclude(std::string fromFileName,std::string toFileName)
     {
-      //printf("DefineManager::addInclude('%s'->'%s')\n",fromFileName.c_str(),toFileName.c_str());
       auto it = m_fileMap.find(fromFileName);
-      if (it==m_fileMap.end())
+      if (it!=m_fileMap.end())
       {
-        it = m_fileMap.emplace(fromFileName,std::make_unique<DefinesPerFile>(this)).first;
+        auto &dpf = it->second;
+        dpf->addInclude(toFileName);
       }
-      auto &dpf = it->second;
-      dpf->addInclude(toFileName);
     }
 
-    void store(std::string fileName,const DefineMap &fromMap)
+    void store(std::string fileName,const DefineMapOwning &fromMap)
     {
-      //printf("DefineManager::store(%s,#=%zu)\n",fileName.c_str(),fromMap.size());
       auto it = m_fileMap.find(fileName);
       if (it==m_fileMap.end())
       {
@@ -196,7 +190,7 @@ class DefineManager
       it->second->store(fromMap);
     }
 
-    void retrieve(std::string fileName,DefineMap &toMap)
+    void retrieve(std::string fileName,DefineMapOwning &toMap)
     {
       auto it = m_fileMap.find(fileName);
       if (it!=m_fileMap.end())
@@ -204,17 +198,11 @@ class DefineManager
         auto &dpf = it->second;
         dpf->retrieve(toMap);
       }
-      //printf("DefineManager::retrieve(%s,#=%zu)\n",fileName.c_str(),toMap.size());
     }
 
     bool alreadyProcessed(std::string fileName) const
     {
-      auto it = m_fileMap.find(fileName);
-      if (it!=m_fileMap.end())
-      {
-        return it->second->stored();
-      }
-      return false;
+      return m_fileMap.find(fileName)!=m_fileMap.end();
     }
 
   private:
@@ -233,9 +221,13 @@ class DefineManager
  *
  *	global state
  */
+#if MULTITHREADED_INPUT
 static std::mutex            g_debugMutex;
 static std::mutex            g_globalDefineMutex;
+//static std::mutex            g_addIncludeRelationMutex;
+//static std::mutex            g_macroDefinitionsMutex;
 static std::mutex            g_updateGlobals;
+#endif
 static DefineManager         g_defineManager;
 
 
@@ -291,7 +283,6 @@ struct preYY_state
   yy_size_t          fenceSize      = 0;
   bool               ccomment       = false;
   QCString           delimiter;
-  bool               isSpecialComment = false;
   StringVector                             pathList;
   IntMap                                   argMap;
   BoolStack                                levelGuard;
@@ -300,8 +291,7 @@ struct preYY_state
   std::unordered_map<std::string,Define*>  expandedDict;
   StringUnorderedSet                       expanded;
   ConstExpressionParser                    constExpParser;
-  DefineMap                                contextDefines; // macros imported from other files
-  DefineMap                                localDefines;   // macros defined in this file
+  DefineMapOwning                          contextDefines;
   DefineList                               macroDefinitions;
   LinkedMap<PreIncludeInfo>                includeRelations;
 };
@@ -1147,7 +1137,7 @@ CHARLIT   (("'"\\[0-7]{1,3}"'")|("'"\\."'")|("'"[^'\\\n]{1,4}"'"))
   					}
 <SkipCComment>^({B}*"*"+)?{B}{0,3}"~~~"[~]*   {
                                           bool markdownSupport = Config_getBool(MARKDOWN_SUPPORT);
-                                          if (!markdownSupport || !yyextra->isSpecialComment)
+                                          if (!markdownSupport)
                                           {
                                             REJECT;
                                           }
@@ -1160,7 +1150,7 @@ CHARLIT   (("'"\\[0-7]{1,3}"'")|("'"\\."'")|("'"[^'\\\n]{1,4}"'"))
                                         }
 <SkipCComment>^({B}*"*"+)?{B}{0,3}"```"[`]*            {
                                           bool markdownSupport = Config_getBool(MARKDOWN_SUPPORT);
-                                          if (!markdownSupport || !yyextra->isSpecialComment)
+                                          if (!markdownSupport)
                                           {
                                             REJECT;
                                           }
@@ -1502,7 +1492,7 @@ CHARLIT   (("'"\\[0-7]{1,3}"'")|("'"\\."'")|("'"[^'\\\n]{1,4}"'"))
 					  }
 					}
 <SkipDoubleQuote>"//"[/]?		{ yyextra->defText += yytext; yyextra->defLitText+=yytext; }
-<SkipDoubleQuote>"/*"[*]?		{ yyextra->defText += yytext; yyextra->defLitText+=yytext; }
+<SkipDoubleQuote>"/*"			{ yyextra->defText += yytext; yyextra->defLitText+=yytext; }
 <SkipDoubleQuote>\"			{
   					  yyextra->defText += *yytext; yyextra->defLitText+=yytext; 
 					  BEGIN(DefineText);
@@ -1549,8 +1539,10 @@ CHARLIT   (("'"\\[0-7]{1,3}"'")|("'"\\."'")|("'"[^'\\\n]{1,4}"'"))
 
 					    yyextra->includeStack.pop_back();
 
+#if MULTITHREADED_INPUT
                                             {
                                               std::lock_guard<std::mutex> lock(g_globalDefineMutex);
+#endif
                                               // to avoid deadlocks we allow multiple threads to process the same header file.
                                               // The first one to finish will store the results globally. After that the
                                               // next time the same file is encountered, the stored data is used and the file
@@ -1559,7 +1551,7 @@ CHARLIT   (("'"\\[0-7]{1,3}"'")|("'"\\."'")|("'"[^'\\\n]{1,4}"'"))
                                               {
                                                 // now that the file is completely processed, prevent it from processing it again
                                                 g_defineManager.addInclude(yyextra->yyFileName.str(),toFileName.str());
-                                                g_defineManager.store(toFileName.str(),yyextra->localDefines);
+                                                g_defineManager.store(toFileName.str(),yyextra->contextDefines);
                                               }
                                               else
                                               {
@@ -1568,22 +1560,13 @@ CHARLIT   (("'"\\[0-7]{1,3}"'")|("'"\\."'")|("'"[^'\\\n]{1,4}"'"))
                                                   Debug::print(Debug::Preprocessor,0,"#include %s: was already processed by another thread! not storing data...\n",qPrint(toFileName));
                                                 }
                                               }
+#if MULTITHREADED_INPUT
                                             }
-                                            // move the local macros definitions for in this file to the translation unit context
-                                            for (const auto &kv : yyextra->localDefines)
-                                            {
-                                              auto pair = yyextra->contextDefines.insert(kv);
-                                              if (!pair.second) // define already in context -> replace with local version
-                                              {
-                                                yyextra->contextDefines.erase(pair.first);
-                                                yyextra->contextDefines.insert(kv);
-                                              }
-                                            }
-                                            yyextra->localDefines.clear();
+#endif
 					  }
   					}
 <*>"/*"/"*/"				|
-<*>"/*"[*!]?				{
+<*>"/*"[*]?				{
                                           if (YY_START==SkipVerbatim || YY_START==SkipCond)
                                           {
                                             REJECT;
@@ -1593,19 +1576,11 @@ CHARLIT   (("'"\\[0-7]{1,3}"'")|("'"\\."'")|("'"[^'\\\n]{1,4}"'"))
 					    outputArray(yyscanner,yytext,(int)yyleng);
   					    yyextra->lastCContext=YY_START;
 					    yyextra->commentCount=1;
-					    if (yyleng==3) 
-                                            {
-                                              yyextra->isSpecialComment = true;
-                                              yyextra->lastGuardName.resize(0); // reset guard in case the #define is documented!
-                                            }
-                                            else
-                                            {
-                                              yyextra->isSpecialComment = false;
-                                            }
+					    if (yyleng==3) yyextra->lastGuardName.resize(0); // reset guard in case the #define is documented!
 					    BEGIN(SkipCComment);
                                           }
   					}
-<*>"//"[/!]?				{
+<*>"//"[/]?				{
                                           if (YY_START==SkipVerbatim || YY_START==SkipCond || getLanguageFromFileName(yyextra->yyFileName)==SrcLangExt_Fortran)
                                           {
                                             REJECT;
@@ -1614,15 +1589,7 @@ CHARLIT   (("'"\\[0-7]{1,3}"'")|("'"\\."'")|("'"[^'\\\n]{1,4}"'"))
                                           {
 					    outputArray(yyscanner,yytext,(int)yyleng);
   					    yyextra->lastCPPContext=YY_START;
-					    if (yyleng==3)
-                                            {
-                                              yyextra->isSpecialComment = true;
-                                              yyextra->lastGuardName.resize(0); // reset guard in case the #define is documented!
-                                            }
-                                            else
-                                            {
-                                              yyextra->isSpecialComment = false;
-                                            }
+					    if (yyleng==3) yyextra->lastGuardName.resize(0); // reset guard in case the #define is documented!
 					    BEGIN(SkipCPPComment);
                                           }
 					}
@@ -1728,7 +1695,10 @@ static FileState *checkAndOpenFile(yyscan_t yyscanner,const QCString &fileName,b
     // global guard
     if (state->curlyCount==0) // not #include inside { ... }
     {
+#if MULTITHREADED_INPUT
       std::lock_guard<std::mutex> lock(g_globalDefineMutex);
+#endif
+
       if (g_defineManager.alreadyProcessed(absName.str()))
       {
         alreadyProcessed = TRUE;
@@ -2036,7 +2006,7 @@ static bool replaceFunctionMacro(yyscan_t yyscanner,const QCString &expr,QCStrin
   QCString arg;
   int argCount=0;
   bool done=FALSE;
-
+  
   // PHASE 1: read the macro arguments
   if (def->nargs==0)
   {
@@ -2395,7 +2365,7 @@ static bool expandExpression(yyscan_t yyscanner,QCString &expr,QCString *rest,in
 	}
 	else if (def && def->nargs>=0) // function macro
 	{
-          //printf(" >>>> call replaceFunctionMacro expr='%s'\n",qPrint(expr));
+          //printf(" >>>> call replaceFunctionMacro\n");
 	  replaced=replaceFunctionMacro(yyscanner,expr,rest,p+l,len,def,expMacro,level);
           //printf(" <<<< call replaceFunctionMacro: replaced=%d\n",replaced);
 	  len+=l;
@@ -2719,29 +2689,29 @@ static QCString expandMacro(yyscan_t yyscanner,const QCString &name)
 static void addDefine(yyscan_t yyscanner)
 {
   YY_EXTRA_TYPE state = preYYget_extra(yyscanner);
-  Define def;
-  def.name       = state->defName;
-  def.definition = state->defText.stripWhiteSpace();
-  def.nargs      = state->defArgs;
-  def.fileName   = state->yyFileName; 
-  def.fileDef    = state->yyFileDef;
-  def.lineNr     = state->yyLineNr-state->yyMLines;
-  def.columnNr   = state->yyColNr;
-  def.varArgs    = state->defVarArgs;
-  //printf("newDefine: %s %s file: %s\n",def.name.data(),def.definition.data(),
-  //    def.fileDef ? def.fileDef->name().data() : def.fileName.data());
-  //printf("newDefine: '%s'->'%s'\n",def.name.data(),def.definition.data());
-  if (!def.name.isEmpty() && 
-      Doxygen::expandAsDefinedSet.find(def.name.str())!=Doxygen::expandAsDefinedSet.end())
+  std::unique_ptr<Define> def = std::make_unique<Define>();
+  def->name       = state->defName;
+  def->definition = state->defText.stripWhiteSpace();
+  def->nargs      = state->defArgs;
+  def->fileName   = state->yyFileName; 
+  def->fileDef    = state->yyFileDef;
+  def->lineNr     = state->yyLineNr-state->yyMLines;
+  def->columnNr   = state->yyColNr;
+  def->varArgs    = state->defVarArgs;
+  //printf("newDefine: %s %s file: %s\n",def->name.data(),def->definition.data(),
+  //    def->fileDef ? def->fileDef->name().data() : def->fileName.data());
+  //printf("newDefine: '%s'->'%s'\n",def->name.data(),def->definition.data());
+  if (!def->name.isEmpty() && 
+      Doxygen::expandAsDefinedSet.find(def->name.str())!=Doxygen::expandAsDefinedSet.end())
   {
-    def.isPredefined=TRUE;
+    def->isPredefined=TRUE;
   }
-  auto it = state->localDefines.find(def.name.str());
-  if (it!=state->localDefines.end()) // redefine
+  auto it = state->contextDefines.find(def->name.str());
+  if (it!=state->contextDefines.end()) // redefine
   {
-    state->localDefines.erase(it);
+    state->contextDefines.erase(it);
   }
-  state->localDefines.insert(std::make_pair(def.name.str(),def));
+  state->contextDefines.insert(std::make_pair(toStdString(def->name),std::move(def)));
 }
 
 static void addMacroDefinition(yyscan_t yyscanner)
@@ -2750,13 +2720,13 @@ static void addMacroDefinition(yyscan_t yyscanner)
   if (state->skip) return; // do not add this define as it is inside a 
                       // conditional section (cond command) that is disabled.
 
-  Define define;
-  define.fileName = state->yyFileName;
-  define.lineNr   = state->yyLineNr - state->yyMLines;
-  define.columnNr = state->yyColNr;
-  define.name     = state->defName;
-  define.args     = state->defArgsStr;
-  define.fileDef  = state->inputFileDef;
+  auto define = std::make_unique<Define>();
+  define->fileName = state->yyFileName;
+  define->lineNr   = state->yyLineNr - state->yyMLines;
+  define->columnNr = state->yyColNr;
+  define->name     = state->defName;
+  define->args     = state->defArgsStr;
+  define->fileDef  = state->inputFileDef;
 
   QCString litText = state->defLitText;
   int l=litText.find('\n');
@@ -2777,14 +2747,14 @@ static void addMacroDefinition(yyscan_t yyscanner)
   QCString litTextStripped = state->defLitText.stripWhiteSpace();
   if (litTextStripped.contains('\n')>=1)
   {
-    define.definition = litText;
+    define->definition = litText;
   }
   else
   {
-    define.definition = litTextStripped;
+    define->definition = litTextStripped;
   }
   {
-    state->macroDefinitions.push_back(define);
+    state->macroDefinitions.push_back(std::move(define));
   }
 }
 
@@ -2880,11 +2850,6 @@ static void readIncludeFile(yyscan_t yyscanner,const QCString &inc)
     //printf("calling findFile(%s)\n",incFileName.data());
     if ((fs=findFile(yyscanner,incFileName,localInclude,alreadyProcessed))) // see if the include file can be found
     {
-      {
-        std::lock_guard<std::mutex> lock(g_globalDefineMutex);
-        g_defineManager.addInclude(oldFileName.str(),absIncFileName.str());
-      }
-
       //printf("Found include file!\n");
       if (Debug::isFlagSet(Debug::Preprocessor))
       {
@@ -2892,7 +2857,7 @@ static void readIncludeFile(yyscan_t yyscanner,const QCString &inc)
         {
           Debug::print(Debug::Preprocessor,0,"  ");
         }
-        Debug::print(Debug::Preprocessor,0,"#include %s: parsing...\n",incFileName.data());
+        //msg("#include %s: parsing...\n",incFileName.data());
       }
 
       if (state->includeStack.empty() && oldFileDef)
@@ -2940,8 +2905,9 @@ static void readIncludeFile(yyscan_t yyscanner,const QCString &inc)
       if (alreadyProcessed) // if this header was already process we can just copy the stored macros
                            // in the local context
       {
+#if MULTITHREADED_INPUT
         std::lock_guard<std::mutex> lock(g_globalDefineMutex);
-        g_defineManager.addInclude(state->yyFileName.str(),absIncFileName.str());
+#endif
         g_defineManager.retrieve(absIncFileName.str(),state->contextDefines);
       }
 
@@ -2964,10 +2930,6 @@ static void readIncludeFile(yyscan_t yyscanner,const QCString &inc)
 
       if (Debug::isFlagSet(Debug::Preprocessor))
       {
-        for (i=0;i<state->includeStack.size();i++) 
-        {
-          Debug::print(Debug::Preprocessor,0,"  ");
-        }
 	if (alreadyProcessed)
 	{
           Debug::print(Debug::Preprocessor,0,"#include %s: already processed! skipping...\n",qPrint(incFileName));
@@ -2982,6 +2944,7 @@ static void readIncludeFile(yyscan_t yyscanner,const QCString &inc)
       {
 	warn(state->yyFileName,state->yyLineNr,"include file %s not found, perhaps you forgot to add its directory to INCLUDE_PATH?",incFileName.data());
       }
+
     }
   }
 }
@@ -3136,30 +3099,17 @@ static void unputChar(yyscan_t yyscanner,const QCString &expr,QCString *rest,uin
 static Define *isDefined(yyscan_t yyscanner,const char *name)
 {
   YY_EXTRA_TYPE state = preYYget_extra(yyscanner);
-
-  bool undef = false;
-  auto findDefine = [&undef,&name](DefineMap &map)
+  Define *d=0;
+  auto it = state->contextDefines.find(name);
+  if (it!=state->contextDefines.end())
   {
-    Define *d=0;
-    auto it = map.find(name);
-    if (it!=map.end())
+    d = it->second.get();
+    if (d->undef)
     {
-      d = &it->second;
-      if (d->undef)
-      {
-        undef=true;
-        d=0;
-      }
+      d=0;
     }
-    return d;
-  };
-
-  Define *def = findDefine(state->localDefines);
-  if (def==0 && !undef)
-  {
-    def = findDefine(state->contextDefines);
   }
-  return def;
+  return d;
 }
 
 static void initPredefined(yyscan_t yyscanner,const char *fileName)
@@ -3186,34 +3136,22 @@ static void initPredefined(yyscan_t yyscanner,const char *fileName)
         i_obrace<i_cbrace
        ) // predefined function macro definition
     {
-      bool varArgs = false;
-      int count = 0;
-      int i,pi,l;
-      std::map<std::string,int> argMap;
+      //printf("predefined function macro '%s'\n",defStr);
       QRegExp reId("[a-z_A-Z\x80-\xFF][a-z_A-Z0-9\x80-\xFF]*"); // regexp matching an id
-      if (ds.mid(i_obrace+1,i_cbrace-i_obrace-1)=="...")
+      std::map<std::string,int> argMap;
+      int i=i_obrace+1,pi,l,count=0;
+      // gather the formal arguments in a dictionary 
+      while (i<i_cbrace && (pi=reId.match(ds,i,&l)))
       {
-        varArgs = true;
-        argMap.emplace("__VA_ARGS__",count);
-        count++;
-      }
-      else
-      {
-        //printf("predefined function macro '%s'\n",qPrint(ds.mid(i_obrace+1,i_cbrace-i_obrace-1)));
-        i=i_obrace+1;
-        // gather the formal arguments in a dictionary 
-        while (i<i_cbrace && (pi=reId.match(ds,i,&l)))
+        if (l>0) // see bug375037
         {
-          if (l>0) // see bug375037
-          {
-            argMap.emplace(toStdString(ds.mid(pi,l)),count);
-            count++;
-            i=pi+l;
-          }
-          else
-          {
-            i++;
-          }
+          argMap.emplace(toStdString(ds.mid(pi,l)),count);
+          count++;
+          i=pi+l;
+        }
+        else
+        {
+          i++;
         }
       }
       // strip definition part
@@ -3245,16 +3183,15 @@ static void initPredefined(yyscan_t yyscanner,const char *fileName)
       QCString dname = ds.left(i_obrace);
       if (!dname.isEmpty())
       {
-        Define def;
-        def.name         = dname;
-        def.definition   = definition;
-        def.nargs        = count;
-        def.isPredefined = TRUE;
-        def.nonRecursive = nonRecursive;
-        def.fileDef      = state->yyFileDef;
-        def.fileName     = fileName;
-        def.varArgs      = varArgs;
-        state->contextDefines.insert(std::make_pair(def.name.str(),def));
+        std::unique_ptr<Define> def = std::make_unique<Define>();
+        def->name         = dname;
+        def->definition   = definition; 
+        def->nargs        = count;
+        def->isPredefined = TRUE;
+        def->nonRecursive = nonRecursive;
+        def->fileDef      = state->yyFileDef;
+        def->fileName     = fileName;
+        state->contextDefines.insert(std::make_pair(toStdString(def->name),std::move(def)));
 
         //printf("#define '%s' '%s' #nargs=%d\n",
         //  def->name.data(),def->definition.data(),def->nargs);
@@ -3267,26 +3204,26 @@ static void initPredefined(yyscan_t yyscanner,const char *fileName)
         ) // predefined non-function macro definition
     {
       //printf("predefined normal macro '%s'\n",defStr);
-      Define def;
+      std::unique_ptr<Define> def = std::make_unique<Define>();
       if (i_equals==-1) // simple define without argument
       {
-        def.name = ds;
-        def.definition = "1"; // substitute occurrences by 1 (true)
+        def->name = ds;
+        def->definition = "1"; // substitute occurrences by 1 (true)
       }
       else // simple define with argument
       {
         int ine=i_equals - (nonRecursive ? 1 : 0);
-        def.name = ds.left(ine);
-        def.definition = ds.right(ds.length()-i_equals-1);
+        def->name = ds.left(ine);
+        def->definition = ds.right(ds.length()-i_equals-1);
       }
-      if (!def.name.isEmpty())
+      if (!def->name.isEmpty())
       {
-        def.nargs = -1;
-        def.isPredefined = TRUE;
-        def.nonRecursive = nonRecursive;
-        def.fileDef      = state->yyFileDef;
-        def.fileName     = fileName;
-        state->contextDefines.insert(std::make_pair(def.name.str(),def));
+        def->nargs = -1;
+        def->isPredefined = TRUE;
+        def->nonRecursive = nonRecursive;
+        def->fileDef      = state->yyFileDef;
+        def->fileName     = fileName;
+        state->contextDefines.insert(std::make_pair(toStdString(def->name),std::move(def)));
       }
     }
   }
@@ -3381,7 +3318,9 @@ void Preprocessor::processFile(const char *fileName,BufStr &input,BufStr &output
 
   if (Debug::isFlagSet(Debug::Preprocessor))
   {
+#if MULTITHREADED_INPUT
     std::lock_guard<std::mutex> lock(g_debugMutex);
+#endif
     char *orgPos=output.data()+orgOffset;
     char *newPos=output.data()+output.curPos();
     Debug::print(Debug::Preprocessor,0,"Preprocessor output of %s (size: %d bytes):\n",fileName,newPos-orgPos);
@@ -3400,11 +3339,7 @@ void Preprocessor::processFile(const char *fileName,BufStr &input,BufStr &output
       Debug::print(Debug::Preprocessor,0,"---------\n");
       for (auto &kv : yyextra->contextDefines)
       {
-        Debug::print(Debug::Preprocessor,0,"%s ",qPrint(kv.second.name));
-      }
-      for (auto &kv : yyextra->localDefines)
-      {
-        Debug::print(Debug::Preprocessor,0,"%s ",qPrint(kv.second.name));
+        Debug::print(Debug::Preprocessor,0,"%s ",qPrint(kv.second->name));
       }
       Debug::print(Debug::Preprocessor,0,"\n---------\n");
     }
@@ -3415,7 +3350,9 @@ void Preprocessor::processFile(const char *fileName,BufStr &input,BufStr &output
   }
 
   {
+#if MULTITHREADED_INPUT
     std::lock_guard<std::mutex> lock(g_updateGlobals);
+#endif
     for (const auto &inc : state->includeRelations)
     {
       if (inc->fromFileDef)

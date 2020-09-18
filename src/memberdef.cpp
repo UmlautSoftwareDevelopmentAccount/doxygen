@@ -75,7 +75,7 @@ class MemberDefImpl : public DefinitionImpl, public MemberDef
     virtual const QCString &initializer() const;
     virtual int initializerLines() const;
     virtual uint64 getMemberSpecifiers() const;
-    virtual const MemberList *getSectionList(const Definition *) const;
+    virtual const MemberList *getSectionList() const;
     virtual QCString    displayDefinition() const;
     virtual const ClassDef *getClassDef() const;
     virtual ClassDef *getClassDef();
@@ -251,7 +251,7 @@ class MemberDefImpl : public DefinitionImpl, public MemberDef
     virtual void setBitfields(const char *s);
     virtual void setMaxInitLines(int lines);
     virtual void setMemberClass(ClassDef *cd);
-    virtual void setSectionList(const Definition *container,MemberList *sl);
+    virtual void setSectionList(MemberList *sl);
     virtual void setGroupDef(GroupDef *gd,Grouping::GroupPri_t pri,
                      const QCString &fileName,int startLine,bool hasDocs,
                      MemberDef *member=0);
@@ -418,8 +418,8 @@ class MemberDefAliasImpl : public DefinitionAliasImpl, public MemberDef
     { return getMdAlias()->initializerLines(); }
     virtual uint64 getMemberSpecifiers() const
     { return getMdAlias()->getMemberSpecifiers(); }
-    virtual const MemberList *getSectionList(const Definition *container) const
-    { return getMdAlias()->getSectionList(container); }
+    virtual const MemberList *getSectionList() const
+    { return getMdAlias()->getSectionList(); }
     virtual QCString displayDefinition() const
     { return getMdAlias()->displayDefinition(); }
     virtual const ClassDef *getClassDef() const
@@ -763,7 +763,7 @@ class MemberDefAliasImpl : public DefinitionAliasImpl, public MemberDef
     virtual void setBitfields(const char *s) {}
     virtual void setMaxInitLines(int lines) {}
     virtual void setMemberClass(ClassDef *cd) {}
-    virtual void setSectionList(const Definition *c,MemberList *sl) {}
+    virtual void setSectionList(MemberList *sl) {}
     virtual void setGroupDef(GroupDef *gd,Grouping::GroupPri_t pri,
                      const QCString &fileName,int startLine,bool hasDocs,
                      MemberDef *member=0) {}
@@ -4050,37 +4050,35 @@ void MemberDefImpl::warnIfUndocumented() const
     warnIfUndocumentedParams();
   }
 }
-static QCString stripTrailingReturn(const QCString trailRet)
-{
-  QCString ret = trailRet;
 
-  ret = ret.stripWhiteSpace();
-  if (ret.startsWith("->"))
+static QCString removeReturnTypeKeywords(const QCString &s)
+{
+  QCString result = s;
+  bool done;
+  do
   {
-    ret = ret.mid(2).stripWhiteSpace();
-    return ret;
+    done=true;
+    if (result.stripPrefix("constexpr ")  ||
+        result.stripPrefix("consteval ") ||
+        result.stripPrefix("virtual ")   ||
+        result.stripPrefix("static ")    ||
+        result.stripPrefix("volatile "))
+    {
+      done=false;
+    }
   }
-  return trailRet;
+  while (!done);
+  return result;
 }
 
 void MemberDefImpl::detectUndocumentedParams(bool hasParamCommand,bool hasReturnCommand) const
 {
   if (!Config_getBool(WARN_NO_PARAMDOC)) return;
-  QCString returnType = typeString();
+  QCString returnType = removeReturnTypeKeywords(typeString());
   bool isPython = getLanguage()==SrcLangExt_Python;
   bool isFortran = getLanguage()==SrcLangExt_Fortran;
   bool isFortranSubroutine = isFortran && returnType.find("subroutine")!=-1;
-
-  bool isVoidReturn = (returnType=="void") || (returnType.right(5)==" void");
-  if (!isVoidReturn && returnType == "auto")
-  {
-    const ArgumentList &defArgList=isDocsForDefinition() ?  argumentList() : declArgumentList();
-    if (!defArgList.trailingReturnType().isEmpty())
-    {
-      QCString strippedTrailingReturn = stripTrailingReturn(defArgList.trailingReturnType());
-      isVoidReturn = (strippedTrailingReturn=="void") || (strippedTrailingReturn.right(5)==" void");
-    }
-  }
+  bool isVoidReturn = returnType=="void";
 
   if (!m_impl->hasDocumentedParams && hasParamCommand)
   {
@@ -4471,18 +4469,18 @@ void MemberDefImpl::addListReference(Definition *)
         getOutputFileBase()+"#"+anchor(),memName,memArgs,pd);
 }
 
-const MemberList *MemberDefImpl::getSectionList(const Definition *container) const
+const MemberList *MemberDefImpl::getSectionList() const
 {
-  const Definition *d = container;
+  const Definition *d= resolveAlias()->getOuterScope();
   char key[20];
   sprintf(key,"%p",(void*)d);
   return (d!=0 && m_impl->classSectionSDict) ? m_impl->classSectionSDict->find(key) : 0;
 }
 
-void MemberDefImpl::setSectionList(const Definition *container,MemberList *sl)
+void MemberDefImpl::setSectionList(MemberList *sl)
 {
-  //printf("MemberDefImpl::setSectionList(%s,%p) name=%s\n",d->name().data(),sl,name().data());
-  const Definition *d= container;
+  //printf("MemberDefImpl::setSectionList(%p,%p) name=%s\n",d,sl,name().data());
+  const Definition *d= resolveAlias()->getOuterScope();
   char key[20];
   sprintf(key,"%p",(void*)d);
   if (m_impl->classSectionSDict==0)
@@ -5941,8 +5939,8 @@ static void transferArgumentDocumentation(ArgumentList &decAl,ArgumentList &defA
             decIt!= decAl.end() && defIt!= defAl.end();
           ++decIt,               ++defIt)
   {
-    Argument &decA = *decIt;
-    Argument &defA = *defIt;
+    Argument decA = *decIt;
+    Argument defA = *defIt;
     if (decA.docs.isEmpty() && !defA.docs.isEmpty())
     {
       decA.docs = defA.docs;
