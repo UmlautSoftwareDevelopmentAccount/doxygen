@@ -262,7 +262,7 @@ static const std::map< std::string, DocCmdMap > docCmdMap =
   { "relatesalso",     { &handleRelatedAlso,      CommandSpacing::Invisible }},
   { "remark",          { 0,                       CommandSpacing::Block     }},
   { "remarks",         { 0,                       CommandSpacing::Block     }},
-  { "req",             { &handleReq,              CommandSpacing::Inline    }},
+  { "req",             { &handleReq,              CommandSpacing::Block     }},
   { "result",          { 0,                       CommandSpacing::Block     }},
   { "return",          { 0,                       CommandSpacing::Block     }},
   { "returns",         { 0,                       CommandSpacing::Block     }},
@@ -317,6 +317,7 @@ enum XRefKind
   XRef_Test,
   XRef_Bug,
   XRef_Deprecated,
+  XRef_Req,
   XRef_None
 };
 
@@ -450,7 +451,7 @@ static void addCite(yyscan_t yyscanner);
 
        /* start command character */
 CMD          ("\\"|"@")
-XREFCMD   {CMD}("bug"|"deprecated"|"test"|"todo"|"xrefitem")
+XREFCMD   {CMD}("bug"|"deprecated"|"test"|"todo"|"xrefitem"|"req")
 PRE       [pP][rR][eE]
 TABLE          [tT][aA][bB][lL][eE]
 P          [pP]
@@ -2727,11 +2728,30 @@ static bool handleCopyDoc(yyscan_t yyscanner,const QCString &, const QCStringLis
   return FALSE;
 }
 
+/** Expands given @c <label>:<req-string-id> into <req-string-id>*/
+static QCString expandReq(const QCString &label, const QCString &reqId)
+{
+  // TODO: Config_get LIST REQ_PREFIX for each label
+
+  return QCString{"\n\tEXPANDED_REQUIREMENT: \n\tLABEL: "} + label + " \n\tREQ-ID: " + reqId + "\n";
+}
+
+/** Fetches through configured REQ_PROVIDER @c expandedReqId detailed description. */
+static QCString describeReq(const QCString &expandedReqId)
+{
+  // TODO: figure out protocol for REQ_PROVIDER (file:// or http://), load the JSON or make the RPC
+
+  return "\n\tTest description for the \n\t<i>expanded requirement</i>: " + expandedReqId + "\n";
+}
+
 static bool handleReq(yyscan_t yyscanner, const QCString &s, const QCStringList &optList)
 {
   struct yyguts_t *yyg = (struct yyguts_t*)yyscanner;
 
   const QCStringList::ConstIterator end = optList.end();
+
+  yyextra->newXRefItemKey = "req";
+  setOutput(yyscanner, OutputXRef);
 
   for (QCStringList::ConstIterator it = optList.begin(); it != end; ++it)
   {
@@ -2759,7 +2779,18 @@ static bool handleReq(yyscan_t yyscanner, const QCString &s, const QCStringList 
           ? reqStr.right(reqStr.length() - static_cast<unsigned>(delimPos) - 1)
           : reqStr;
 
-    yyextra->current->reqs.insert(std::make_pair(label, reqId));
+    // Treat @req as a sequence of @xrefitem commands, where xrefItemKey is "req"
+    QCString expanded = stripQuotes(expandReq(label, reqId));
+
+    yyextra->newXRefKind = XRef_Req;
+    yyextra->xrefItemTitle = expanded;
+    yyextra->xrefListTitle = (label == ":") ? expanded : "Req list";  // TODO: theTranslator->trRequirements()
+    yyextra->outputXRef = describeReq(expanded);
+    //yyextra->pOutputString += *describeReq(expanded);
+    yyextra->xrefAppendFlag = FALSE;
+
+    setOutput(yyscanner, OutputXRef);
+    yyextra->xrefKind = XRef_Req;
   }
 
   return FALSE;
@@ -3051,6 +3082,7 @@ static inline void setOutput(yyscan_t yyscanner,OutputContext ctx)
   //printf("refKind=%d yyextra->newXRefKind=%d xrefAppendToPrev=%d yyextra->xrefAppendFlag=%d\n",
   //             yyextra->xrefKind,yyextra->newXRefKind,xrefAppendToPrev,yyextra->xrefAppendFlag);
 
+
   //printf("setOutput(yyscanner,yyextra->inContext=%d ctx=%d)\n",yyextra->inContext,ctx);
   if (yyextra->inContext==OutputXRef) // end of XRef section => add the item
   {
@@ -3089,6 +3121,13 @@ static inline void setOutput(yyscan_t yyscanner,OutputContext ctx)
         break;
       case XRef_Item:  // user defined list
         addXRefItem(yyscanner,yyextra->xrefItemKey,
+            yyextra->xrefItemTitle,
+            yyextra->xrefListTitle,
+            xrefAppendToPrev
+            );
+        break;
+      case XRef_Req:  // requirement
+        addXRefItem(yyscanner, "req",
             yyextra->xrefItemTitle,
             yyextra->xrefListTitle,
             xrefAppendToPrev

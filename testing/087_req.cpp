@@ -20,8 +20,8 @@
  */
 void foo()
 {
-  int i; //!< @req{REQ_VAR_FIRST, REQ_VAR_LEADING_SPACE,REQ_VAR_TRAILING_SPACE  }
-  int j; //!< @req REQ_VAR_NO_BRACES
+  int i; //! @req{REQ_VAR_FIRST, REQ_VAR_LEADING_SPACE,REQ_VAR_TRAILING_SPACE  }
+  int j; /** @req REQ_VAR_NO_BRACES */
 }
 
 //! \req{SYS:CLASS_A}

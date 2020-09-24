@@ -11229,6 +11229,8 @@ void parseInput()
   findGroupScope(root.get());
   g_s.end();
 
+  // XXX TODO: ================ buildReqsList? ===================
+
   auto memberNameComp = [](const MemberNameLinkedMap::Ptr &n1,const MemberNameLinkedMap::Ptr &n2)
   {
     return qstricmp(n1->memberName()+getPrefixIndex(n1->memberName()),
@@ -11538,6 +11540,8 @@ void generateOutput()
   g_s.begin("Generating directory documentation...\n");
   generateDirDocs(*g_outputList);
   g_s.end();
+
+  // XXX TODO: ============= generateReqDocs? =================
 
   if (g_outputList->size()>0)
   {
