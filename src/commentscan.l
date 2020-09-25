@@ -2733,7 +2733,7 @@ static QCString expandReq(const QCString &label, const QCString &reqId)
 {
   // TODO: Config_get LIST REQ_PREFIX for each label
 
-  return QCString{"\n\tEXPANDED_REQUIREMENT: \n\tLABEL: "} + label + " \n\tREQ-ID: " + reqId + "\n";
+  return label + " $ " + reqId;
 }
 
 /** Fetches through configured REQ_PROVIDER @c expandedReqId detailed description. */
@@ -2741,7 +2741,7 @@ static QCString describeReq(const QCString &expandedReqId)
 {
   // TODO: figure out protocol for REQ_PROVIDER (file:// or http://), load the JSON or make the RPC
 
-  return "\n\tTest description for the \n\t<i>expanded requirement</i>: " + expandedReqId + "\n";
+  return expandedReqId + " $ Description";
 }
 
 static bool handleReq(yyscan_t yyscanner, const QCString &s, const QCStringList &optList)
@@ -2750,8 +2750,8 @@ static bool handleReq(yyscan_t yyscanner, const QCString &s, const QCStringList 
 
   const QCStringList::ConstIterator end = optList.end();
 
-  yyextra->newXRefItemKey = "req";
-  setOutput(yyscanner, OutputXRef);
+  yyextra->xrefAppendFlag = FALSE;
+  yyextra->newXRefKind = XRef_Req;  // start new @req block
 
   for (QCStringList::ConstIterator it = optList.begin(); it != end; ++it)
   {
@@ -2766,7 +2766,7 @@ static bool handleReq(yyscan_t yyscanner, const QCString &s, const QCStringList 
     if (delimPos == 0)
     {
       warn(yyextra->fileName, yyextra->lineNr,
-           "Ignoring missing label for \\req: '%s'", reqStr.data());
+           "Ignoring missing label for \\req: '%s'.", reqStr.data());
     }
 
     QCString label =
@@ -2779,18 +2779,24 @@ static bool handleReq(yyscan_t yyscanner, const QCString &s, const QCStringList 
           ? reqStr.right(reqStr.length() - static_cast<unsigned>(delimPos) - 1)
           : reqStr;
 
-    // Treat @req as a sequence of @xrefitem commands, where xrefItemKey is "req"
-    QCString expanded = stripQuotes(expandReq(label, reqId));
+    printf("== State: %s %s\n", label.data(), reqId.data());
 
-    yyextra->newXRefKind = XRef_Req;
-    yyextra->xrefItemTitle = expanded;
-    yyextra->xrefListTitle = (label == ":") ? expanded : "Req list";  // TODO: theTranslator->trRequirements()
-    yyextra->outputXRef = describeReq(expanded);
-    //yyextra->pOutputString += *describeReq(expanded);
-    yyextra->xrefAppendFlag = FALSE;
+    if ( ! reqId.isEmpty())
+    {
+      // Treat @req as a sequence of @xrefitem commands, where xrefItemKey is "req"
+      QCString expanded = stripQuotes(expandReq(label, reqId));
 
-    setOutput(yyscanner, OutputXRef);
-    yyextra->xrefKind = XRef_Req;
+      yyextra->xrefKind = XRef_Req;
+      yyextra->xrefListTitle = (label == ":") ? expanded : "Req list";  // TODO: theTranslator->trRequirements()
+      yyextra->xrefItemTitle = "Requirement";
+      yyextra->outputXRef = describeReq(expanded);
+      setOutput(yyscanner, OutputXRef);
+      yyextra->xrefAppendFlag = FALSE;
+    }
+    else
+    {
+      warn(yyextra->fileName, yyextra->lineNr, "Ignoring requirement due to missing identifier.");
+    }
   }
 
   return FALSE;
