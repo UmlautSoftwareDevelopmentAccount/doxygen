@@ -1569,6 +1569,15 @@ class TranslatorNorwegian : public TranslatorAdapter_1_4_6
               "funksjonen ovenfor i argument(ene) den aksepterer.";
     }
 
+//////////////////////////////////////////////////////////////////////////
+// new since 1.8.xx
+//////////////////////////////////////////////////////////////////////////
+
+    virtual QCString trReq()
+    { return "Requirement"; }
+
+    virtual QCString trReqList(const char *what)
+    { return "Requirement List" + (what ? QCString(" in group ") + what : QCString("")); }
 };
 
 #endif

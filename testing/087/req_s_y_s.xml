@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<doxygen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="compound.xsd" version="" xml:lang="en-US">
+  <compounddef id="req_s_y_s" kind="page">
+    <compoundname>reqSYS</compoundname>
+    <title>Requirement List in group SYS</title>
+    <briefdescription>
+    </briefdescription>
+    <detaileddescription>
+      <para>
+        <variablelist>
+          <varlistentry>
+            <term>File <ref refid="087__req_8cpp" kindref="compound">087_req.cpp</ref>  </term>
+          </varlistentry>
+          <listitem>
+            <para><anchor id="req_s_y_s_1_reqSYS000001"/>SYS $ FILE_LEVEL_SYS $ Description </para>
+          </listitem>
+          <varlistentry>
+            <term>Member <ref refid="087__req_8cpp_1ac07863d69ae41a4e395b31f73b35fbcd" kindref="member">foo</ref>  ()</term>
+          </varlistentry>
+          <listitem>
+            <para><anchor id="req_s_y_s_1_reqSYS000002"/>SYS $ REQ_FUNCTION_SEQ_PREFIXED $ Description </para>
+          </listitem>
+          <varlistentry>
+            <term>Class <ref refid="class_a" kindref="compound">A</ref>  </term>
+          </varlistentry>
+          <listitem>
+            <para><anchor id="req_s_y_s_1_reqSYS000003"/>SYS $ CLASS_A $ Description</para>
+          </listitem>
+        </variablelist>
+      </para>
+    </detaileddescription>
+  </compounddef>
+</doxygen>

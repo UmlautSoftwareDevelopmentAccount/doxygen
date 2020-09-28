@@ -1801,5 +1801,15 @@ class TranslatorArmenian : public TranslatorAdapter_1_8_0
     virtual QCString trDirDepGraph(const char *name)
     { return name + QCString("-ի ֆայլադարանների կախվածությունների գծագիր:"); }
 
+/////////////////////////////////////////////////////////////////////////
+// new since 1.8.xx
+//////////////////////////////////////////////////////////////////////////
+
+    virtual QCString trReq()
+    { return "Requirement"; }
+
+    virtual QCString trReqList(const char *what)
+    { return "Requirement List" + (what ? QCString(" in group ") + what : QCString("")); }
+
 };
 #endif

@@ -1,1 +1,143 @@
-
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<doxygen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="compound.xsd" version="" xml:lang="en-US">
+  <compounddef id="087__req_8cpp" kind="file" language="C++">
+    <compoundname>087_req.cpp</compoundname>
+    <innerclass refid="class_a" prot="public">A</innerclass>
+    <sectiondef kind="user-defined">
+      <memberdef kind="enum" id="087__req_8cpp_1aa57b8491d1d8fc1014dd54bcf83b130a" prot="public" static="no" strong="no">
+        <type/>
+        <name>E</name>
+        <enumvalue id="087__req_8cpp_1aa57b8491d1d8fc1014dd54bcf83b130aa58833a3110c570fb05130d40c365d1e4" prot="public">
+          <name>X</name>
+          <briefdescription>
+          </briefdescription>
+          <detaileddescription>
+            <para>
+              <xrefsect id="req_s_w_1_reqSW000001">
+                <xreftitle>Requirement</xreftitle>
+                <xrefdescription>
+                  <para>SW $ ENUM_X $ Description</para>
+                </xrefdescription>
+              </xrefsect>
+            </para>
+          </detaileddescription>
+        </enumvalue>
+        <enumvalue id="087__req_8cpp_1aa57b8491d1d8fc1014dd54bcf83b130aa5596231eabd6cf29050967d5ac83ad84" prot="public">
+          <name>Y</name>
+          <briefdescription>
+          </briefdescription>
+          <detaileddescription>
+            <para>
+              <xrefsect id="req_1_req000009">
+                <xreftitle>Requirement</xreftitle>
+                <xrefdescription>
+                  <para>: $ MISSING_LABEL $ Description</para>
+                </xrefdescription>
+              </xrefsect>
+            </para>
+          </detaileddescription>
+        </enumvalue>
+        <briefdescription>
+        </briefdescription>
+        <detaileddescription>
+        </detaileddescription>
+        <inbodydescription>
+        </inbodydescription>
+        <location file="087_req.cpp" line="40" column="1" bodyfile="087_req.cpp" bodystart="41" bodyend="44"/>
+      </memberdef>
+      <memberdef kind="function" id="087__req_8cpp_1ac07863d69ae41a4e395b31f73b35fbcd" prot="public" static="no" const="no" explicit="no" inline="no" virt="non-virtual">
+        <type>void</type>
+        <definition>void foo</definition>
+        <argsstring>()</argsstring>
+        <name>foo</name>
+        <briefdescription>
+        </briefdescription>
+        <detaileddescription>
+          <para>Foo function.</para>
+          <para>
+            <xrefsect id="req_1_req000003">
+              <xreftitle>Requirement</xreftitle>
+              <xrefdescription>
+                <para>: $ REQ_FUNCTION $ Description</para>
+              </xrefdescription>
+            </xrefsect>
+            <xrefsect id="req_1_req000004">
+              <xreftitle>Requirement</xreftitle>
+              <xrefdescription>
+                <para>: $ REQ_FUNCTION_SEQ $ Description</para>
+              </xrefdescription>
+            </xrefsect>
+            <xrefsect id="req_s_y_s_1_reqSYS000002">
+              <xreftitle>Requirement</xreftitle>
+              <xrefdescription>
+                <para>SYS $ REQ_FUNCTION_SEQ_PREFIXED $ Description</para>
+              </xrefdescription>
+            </xrefsect>
+          </para>
+        </detaileddescription>
+        <inbodydescription>
+          <para>
+            <xrefsect id="req_1_req000005">
+              <xreftitle>Requirement</xreftitle>
+              <xrefdescription>
+                <para>: $ REQ_VAR_FIRST $ Description</para>
+              </xrefdescription>
+            </xrefsect>
+            <xrefsect id="req_1_req000006">
+              <xreftitle>Requirement</xreftitle>
+              <xrefdescription>
+                <para>: $ REQ_VAR_LEADING_SPACE $ Description</para>
+              </xrefdescription>
+            </xrefsect>
+            <xrefsect id="req_1_req000007">
+              <xreftitle>Requirement</xreftitle>
+              <xrefdescription>
+                <para>: $ REQ_VAR_TRAILING_SPACE $ Description</para>
+              </xrefdescription>
+            </xrefsect>
+          </para>
+          <para>
+            <xrefsect id="req_c_o_m_m_o_n_1_reqCOMMON000002">
+              <xreftitle>Requirement</xreftitle>
+              <xrefdescription>
+                <para>COMMON $ REQ_VAR_PREFIXED $ Description</para>
+              </xrefdescription>
+            </xrefsect>
+          </para>
+        </inbodydescription>
+        <location file="087_req.cpp" line="26" column="6" bodyfile="087_req.cpp" bodystart="26" bodyend="30"/>
+      </memberdef>
+    </sectiondef>
+    <briefdescription>
+    </briefdescription>
+    <detaileddescription>
+      <para>
+        <xrefsect id="req_1_req000001">
+          <xreftitle>Requirement</xreftitle>
+          <xrefdescription>
+            <para>: $ FILE_LEVEL $ Description</para>
+          </xrefdescription>
+        </xrefsect>
+        <xrefsect id="req_c_o_m_m_o_n_1_reqCOMMON000001">
+          <xreftitle>Requirement</xreftitle>
+          <xrefdescription>
+            <para>COMMON $ FILE_LEVEL_COMMON $ Description</para>
+          </xrefdescription>
+        </xrefsect>
+        <xrefsect id="req_s_y_s_1_reqSYS000001">
+          <xreftitle>Requirement</xreftitle>
+          <xrefdescription>
+            <para>SYS $ FILE_LEVEL_SYS $ Description</para>
+          </xrefdescription>
+        </xrefsect>
+        <xrefsect id="req_1_req000002">
+          <xreftitle>Requirement</xreftitle>
+          <xrefdescription>
+            <para>: $ FILE_LEVEL_NO_PREFIX $ Description</para>
+          </xrefdescription>
+        </xrefsect>
+      </para>
+    </detaileddescription>
+    <location file="087_req.cpp"/>
+  </compounddef>
+</doxygen>

@@ -2350,5 +2350,14 @@ class TranslatorSwedish : public Translator
     virtual QCString trDesignUnitDocumentation()
     { return "Designenhetsdokumentation"; }
 
+//////////////////////////////////////////////////////////////////////////
+// new since 1.8.xx
+//////////////////////////////////////////////////////////////////////////
+
+    virtual QCString trReq()
+    { return "Requirement"; }
+
+    virtual QCString trReqList(const char *what)
+    { return "Requirement List" + (what ? QCString(" in group ") + what : QCString("")); }
 };
 #endif

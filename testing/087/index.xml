@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<doxygenindex xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="index.xsd" version="" xml:lang="en-US">
+  <compound refid="class_a" kind="class">
+    <name>A</name>
+    <member refid="class_a_1a25e173c87d15c817660eb7007f679de0" kind="variable">
+      <name>i</name>
+    </member>
+  </compound>
+  <compound refid="087__req_8cpp" kind="file">
+    <name>087_req.cpp</name>
+    <member refid="087__req_8cpp_1aa57b8491d1d8fc1014dd54bcf83b130a" kind="enum">
+      <name>E</name>
+    </member>
+    <member refid="087__req_8cpp_1aa57b8491d1d8fc1014dd54bcf83b130aa58833a3110c570fb05130d40c365d1e4" kind="enumvalue">
+      <name>X</name>
+    </member>
+    <member refid="087__req_8cpp_1aa57b8491d1d8fc1014dd54bcf83b130aa5596231eabd6cf29050967d5ac83ad84" kind="enumvalue">
+      <name>Y</name>
+    </member>
+    <member refid="087__req_8cpp_1ac07863d69ae41a4e395b31f73b35fbcd" kind="function">
+      <name>foo</name>
+    </member>
+  </compound>
+  <compound refid="req" kind="page">
+    <name>req</name>
+  </compound>
+  <compound refid="req_c_o_m_m_o_n" kind="page">
+    <name>reqCOMMON</name>
+  </compound>
+  <compound refid="req_s_y_s" kind="page">
+    <name>reqSYS</name>
+  </compound>
+  <compound refid="req_s_w" kind="page">
+    <name>reqSW</name>
+  </compound>
+</doxygenindex>

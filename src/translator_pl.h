@@ -1871,6 +1871,17 @@ class TranslatorPolish : public TranslatorAdapter_1_8_2
     virtual QCString trAdditionalInheritedMembers()
     { return "Dodatkowe Dziedziczone Składowe"; }
 
+//////////////////////////////////////////////////////////////////////////
+// new since 1.8.xx
+//////////////////////////////////////////////////////////////////////////
+
+    /*! Used to link requirement trace link title. */
+    virtual QCString trReq()
+    { return "Wymaganie"; }
+
+    /*! Used for a heading of requirement list for given group of requirements. */
+    virtual QCString trReqList(const char *what)
+    { return "Lista Wymagań" + (what ? QCString(" w grupie ") + what : QCString("")); }
 };
 
 #endif

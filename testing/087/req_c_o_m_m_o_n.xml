@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<doxygen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="compound.xsd" version="" xml:lang="en-US">
+  <compounddef id="req_c_o_m_m_o_n" kind="page">
+    <compoundname>reqCOMMON</compoundname>
+    <title>Requirement List in group COMMON</title>
+    <briefdescription>
+    </briefdescription>
+    <detaileddescription>
+      <para>
+        <variablelist>
+          <varlistentry>
+            <term>File <ref refid="087__req_8cpp" kindref="compound">087_req.cpp</ref>  </term>
+          </varlistentry>
+          <listitem>
+            <para><anchor id="req_c_o_m_m_o_n_1_reqCOMMON000001"/>COMMON $ FILE_LEVEL_COMMON $ Description </para>
+          </listitem>
+          <varlistentry>
+            <term>Member <ref refid="087__req_8cpp_1ac07863d69ae41a4e395b31f73b35fbcd" kindref="member">foo</ref>  ()</term>
+          </varlistentry>
+          <listitem>
+            <para><anchor id="req_c_o_m_m_o_n_1_reqCOMMON000002"/>COMMON $ REQ_VAR_PREFIXED $ Description</para>
+          </listitem>
+        </variablelist>
+      </para>
+    </detaileddescription>
+  </compounddef>
+</doxygen>

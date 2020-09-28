@@ -1,4 +1,10 @@
 // objective: test req command
+// check: class_a.xml
+// check: index.xml
+// check: req.xml
+// check: req_c_o_m_m_o_n.xml
+// check: req_s_w.xml
+// check: req_s_y_s.xml
 // check: 087__req_8cpp.xml
 // config: REQ_PREFIX = "COMMON:COMMON_EXPANDED_ SYS:SYS_EXPANDED_ SW:SW_EXPANDED_"
 // config: REQ_PROVIDER = req_provider

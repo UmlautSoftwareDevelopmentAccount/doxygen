@@ -49,6 +49,16 @@ class TranslatorAdapter_1_8_19 : public TranslatorAdapterBase
 
     virtual QCString trDesignUnitDocumentation()
     { return english.trDesignUnitDocumentation(); }
+
+/////////////////////////////////////////////////////////////////////////
+// new since 1.8.xx
+//////////////////////////////////////////////////////////////////////////
+
+    virtual QCString trReq()
+    { return "Requirement"; }
+
+    virtual QCString trReqList(const char *what)
+    { return "Requirement List" + (what ? QCString(" in group ") + what : QCString("")); }
 };
 
 class TranslatorAdapter_1_8_15 : public TranslatorAdapter_1_8_19

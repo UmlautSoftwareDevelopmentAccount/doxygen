@@ -1770,6 +1770,15 @@ class TranslatorDanish : public TranslatorAdapter_1_8_0
       return QCString("Afhængighedsgraf for katalog ")+name+":";
     }
 
+//////////////////////////////////////////////////////////////////////////
+// new since 1.8.xx
+//////////////////////////////////////////////////////////////////////////
+
+    virtual QCString trReq()
+    { return "Requirement"; }
+
+    virtual QCString trReqList(const char *what)
+    { return "Requirement List" + (what ? QCString(" in group ") + what : QCString("")); }
 
 
 /*---------- For internal use: ----------------------------------------*/

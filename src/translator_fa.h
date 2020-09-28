@@ -1783,6 +1783,15 @@ class TranslatorPersian : public TranslatorAdapter_1_7_5
       }
       return convertDigitsToFarsi(sdate);
     }
+//////////////////////////////////////////////////////////////////////////
+// new since 1.8.xx
+//////////////////////////////////////////////////////////////////////////
+
+    virtual QCString trReq()
+    { return "Requirement"; }
+
+    virtual QCString trReqList(const char *what)
+    { return "Requirement List" + (what ? QCString(" in group ") + what : QCString("")); }
 
 };
 

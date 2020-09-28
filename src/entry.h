@@ -22,7 +22,6 @@
 
 #include <vector>
 #include <memory>
-#include <map>
 
 #include "types.h"
 #include "arguments.h"

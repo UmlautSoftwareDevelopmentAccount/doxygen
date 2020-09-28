@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<doxygen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="compound.xsd" version="" xml:lang="en-US">
+  <compounddef id="req_s_w" kind="page">
+    <compoundname>reqSW</compoundname>
+    <title>Requirement List in group SW</title>
+    <briefdescription>
+    </briefdescription>
+    <detaileddescription>
+      <para>
+        <variablelist>
+          <varlistentry>
+            <term>Member <ref refid="087__req_8cpp_1aa57b8491d1d8fc1014dd54bcf83b130aa58833a3110c570fb05130d40c365d1e4" kindref="member">X</ref>  </term>
+          </varlistentry>
+          <listitem>
+            <para><anchor id="req_s_w_1_reqSW000001"/>SW $ ENUM_X $ Description</para>
+          </listitem>
+        </variablelist>
+      </para>
+    </detaileddescription>
+  </compounddef>
+</doxygen>

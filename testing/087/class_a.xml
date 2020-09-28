@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<doxygen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="compound.xsd" version="" xml:lang="en-US">
+  <compounddef id="class_a" kind="class" language="C++" prot="public">
+    <compoundname>A</compoundname>
+    <sectiondef kind="private-attrib">
+      <memberdef kind="variable" id="class_a_1a25e173c87d15c817660eb7007f679de0" prot="private" static="no" mutable="no">
+        <type>int</type>
+        <definition>int A::i</definition>
+        <argsstring/>
+        <name>i</name>
+        <briefdescription>
+        </briefdescription>
+        <detaileddescription>
+          <para>
+            <xrefsect id="req_s_y_s_1_reqSYS000004">
+              <xreftitle>Requirement</xreftitle>
+              <xrefdescription>
+                <para>SYS $ CLASS_MEMBER_PREFIXED $ Description</para>
+              </xrefdescription>
+            </xrefsect>
+            <xrefsect id="req_1_req000008">
+              <xreftitle>Requirement</xreftitle>
+              <xrefdescription>
+                <para>: $ CLASS_MEMBER_NO_LABEL $ Description</para>
+              </xrefdescription>
+            </xrefsect>
+          </para>
+        </detaileddescription>
+        <inbodydescription>
+        </inbodydescription>
+        <location file="087_req.cpp" line="36" column="9" bodyfile="087_req.cpp" bodystart="36" bodyend="-1"/>
+      </memberdef>
+    </sectiondef>
+    <briefdescription>
+    </briefdescription>
+    <detaileddescription>
+      <para>
+        <xrefsect id="req_s_y_s_1_reqSYS000003">
+          <xreftitle>Requirement</xreftitle>
+          <xrefdescription>
+            <para>SYS $ CLASS_A $ Description</para>
+          </xrefdescription>
+        </xrefsect>
+      </para>
+    </detaileddescription>
+    <location file="087_req.cpp" line="33" column="1" bodyfile="087_req.cpp" bodystart="34" bodyend="37"/>
+    <listofallmembers>
+      <member refid="class_a_1a25e173c87d15c817660eb7007f679de0" prot="private" virt="non-virtual">
+        <scope>A</scope>
+        <name>i</name>
+      </member>
+    </listofallmembers>
+  </compounddef>
+</doxygen>

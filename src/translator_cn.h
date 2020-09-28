@@ -1916,6 +1916,15 @@ class TranslatorChinese : public TranslatorAdapter_1_8_15
       return "该单例的文档由下列文件生成:";
     }
 
+//////////////////////////////////////////////////////////////////////////
+// new since 1.8.xx
+//////////////////////////////////////////////////////////////////////////
+
+    virtual QCString trReq()
+    { return "Requirement"; }
+
+    virtual QCString trReqList(const char *what)
+    { return "Requirement List" + (what ? QCString(" in group ") + what : QCString("")); }
 };
 
 #endif

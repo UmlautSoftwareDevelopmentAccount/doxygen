@@ -1946,6 +1946,15 @@ class TranslatorEsperanto : public TranslatorAdapter_1_8_4
       return "Fasona Superrigardo";
     }
 
+//////////////////////////////////////////////////////////////////////////
+// new since 1.8.xx
+//////////////////////////////////////////////////////////////////////////
+
+    virtual QCString trReq()
+    { return "Requirement"; }
+
+    virtual QCString trReqList(const char *what)
+    { return "Requirement List" + (what ? QCString(" in group ") + what : QCString("")); }
 };
 
 #endif

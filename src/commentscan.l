@@ -31,7 +31,6 @@
 #include <stack>
 #include <string>
 #include <mutex>
-#include <utility>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -2746,11 +2745,12 @@ static QCString describeReq(const QCString &expandedReqId)
 
 static bool handleReq(yyscan_t yyscanner, const QCString &s, const QCStringList &optList)
 {
-  struct yyguts_t *yyg = (struct yyguts_t*)yyscanner;
+  struct yyguts_t *yyg = (struct yyguts_t*) yyscanner;
 
   const QCStringList::ConstIterator end = optList.end();
 
-  yyextra->xrefAppendFlag = FALSE;
+  yyextra->inContext   = OutputXRef;
+  yyextra->xrefKind    = XRef_Req;
   yyextra->newXRefKind = XRef_Req;  // start new @req block
 
   for (QCStringList::ConstIterator it = optList.begin(); it != end; ++it)
@@ -2779,26 +2779,23 @@ static bool handleReq(yyscan_t yyscanner, const QCString &s, const QCStringList 
           ? reqStr.right(reqStr.length() - static_cast<unsigned>(delimPos) - 1)
           : reqStr;
 
-    printf("== State: %s %s\n", label.data(), reqId.data());
-
     if ( ! reqId.isEmpty())
     {
       // Treat @req as a sequence of @xrefitem commands, where xrefItemKey is req
       const QCString expanded = stripQuotes(expandReq(label, reqId));
-
-      const QCString trReq = "Requirement";
-      const QCString trReqs = "Requirements";
+      const QCString trReq    = theTranslator->trReq();
 
       yyextra->outputXRef = describeReq(expanded);
 
       if (label == ":")
       {
-        addXRefItem(yyscanner, "req", trReq, trReqs, false);
+        addXRefItem(yyscanner, "req", trReq, theTranslator->trReqList(0), false);
       }
       else
       {
         QCString reqLabel = "req" + label;
-        addXRefItem(yyscanner, reqLabel.data(), trReq, trReqs + " in " + label.data(), false);
+
+        addXRefItem(yyscanner, reqLabel.data(), trReq, theTranslator->trReqList(label.data()), false);
       }
     }
     else
@@ -3096,7 +3093,6 @@ static inline void setOutput(yyscan_t yyscanner,OutputContext ctx)
   //printf("refKind=%d yyextra->newXRefKind=%d xrefAppendToPrev=%d yyextra->xrefAppendFlag=%d\n",
   //             yyextra->xrefKind,yyextra->newXRefKind,xrefAppendToPrev,yyextra->xrefAppendFlag);
 
-
   //printf("setOutput(yyscanner,yyextra->inContext=%d ctx=%d)\n",yyextra->inContext,ctx);
   if (yyextra->inContext==OutputXRef) // end of XRef section => add the item
   {
@@ -3142,6 +3138,7 @@ static inline void setOutput(yyscan_t yyscanner,OutputContext ctx)
         break;
       case XRef_Req:  // requirement
         // Shall not be handled here, see handleReq.
+        break;
       case XRef_None:
         ASSERT(0);
         break;
