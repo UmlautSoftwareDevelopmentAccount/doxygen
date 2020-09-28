@@ -2783,15 +2783,23 @@ static bool handleReq(yyscan_t yyscanner, const QCString &s, const QCStringList 
 
     if ( ! reqId.isEmpty())
     {
-      // Treat @req as a sequence of @xrefitem commands, where xrefItemKey is "req"
-      QCString expanded = stripQuotes(expandReq(label, reqId));
+      // Treat @req as a sequence of @xrefitem commands, where xrefItemKey is req
+      const QCString expanded = stripQuotes(expandReq(label, reqId));
 
-      yyextra->xrefKind = XRef_Req;
-      yyextra->xrefListTitle = (label == ":") ? expanded : "Req list";  // TODO: theTranslator->trRequirements()
-      yyextra->xrefItemTitle = "Requirement";
+      const QCString trReq = "Requirement";
+      const QCString trReqs = "Requirements";
+
       yyextra->outputXRef = describeReq(expanded);
-      setOutput(yyscanner, OutputXRef);
-      yyextra->xrefAppendFlag = FALSE;
+
+      if (label == ":")
+      {
+        addXRefItem(yyscanner, "req", trReq, trReqs, false);
+      }
+      else
+      {
+        QCString reqLabel = "req" + label;
+        addXRefItem(yyscanner, reqLabel.data(), trReq, trReqs + " in " + label.data(), false);
+      }
     }
     else
     {
@@ -3133,12 +3141,7 @@ static inline void setOutput(yyscan_t yyscanner,OutputContext ctx)
             );
         break;
       case XRef_Req:  // requirement
-        addXRefItem(yyscanner, "req",
-            yyextra->xrefItemTitle,
-            yyextra->xrefListTitle,
-            xrefAppendToPrev
-            );
-        break;
+        // Shall not be handled here, see handleReq.
       case XRef_None:
         ASSERT(0);
         break;
